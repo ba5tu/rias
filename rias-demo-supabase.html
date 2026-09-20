@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RIAS – live-konseptidemo (Supabase)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #141b24; --panel-border: #26313d;
+    --text-primary: #e7edf5; --text-muted: #8a97a8;
+    --accent-amber: #f2a93b; --accent-safe: #37d67a; --accent-alert: #ff4d4f; --accent-info: #4ea1ff;
+    --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:var(--bg); color:var(--text-primary); font-family:var(--font-ui); }
+  body { min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:20px 16px 60px; }
+  .wrap { width:100%; max-width:1100px; }
+  header.page-head { margin-bottom:18px; }
+  .eyebrow { font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; color:var(--accent-amber); margin:0 0 6px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .live-badge { font-size:10.5px; padding:2px 8px; border-radius:10px; background:rgba(55,214,122,0.14); color:var(--accent-safe); border:1px solid rgba(55,214,122,0.4); }
+  h1 { font-size:clamp(22px,4vw,30px); font-weight:700; margin:0 0 8px; line-height:1.2; }
+  .lede { color:var(--text-muted); font-size:14.5px; line-height:1.55; max-width:74ch; margin:0 0 6px; }
+  .lede b { color: var(--text-primary); font-weight:600; }
+  .layout { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr); gap:16px; margin-top:20px; }
+  @media (max-width:780px) { .layout { grid-template-columns:1fr; } }
+  .panel { background:var(--panel); border:1px solid var(--panel-border); border-radius:10px; overflow:hidden; }
+  .map-panel { display:flex; flex-direction:column; }
+  .map-toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:12px 14px; border-bottom:1px solid var(--panel-border); }
+  .status-pill { font-family:var(--font-mono); font-size:12.5px; font-weight:600; padding:5px 10px; border-radius:20px;
+    background:rgba(55,214,122,0.12); color:var(--accent-safe); border:1px solid rgba(55,214,122,0.4);
+    display:inline-flex; align-items:center; gap:6px; }
+  .status-pill .dot { width:7px; height:7px; border-radius:50%; background:currentColor; }
+  .status-pill.pending { background:rgba(242,169,59,0.12); color:var(--accent-amber); border-color:rgba(242,169,59,0.5); }
+  .status-pill.working { background:rgba(78,161,255,0.12); color:var(--accent-info); border-color:rgba(78,161,255,0.5); }
+  .status-pill.alert { background:rgba(255,77,79,0.14); color:var(--accent-alert); border-color:rgba(255,77,79,0.55); animation:pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,77,79,.35);} 50%{box-shadow:0 0 0 6px rgba(255,77,79,0);} }
+  .spacer { flex:1; }
+  button { font-family:var(--font-ui); font-size:13px; font-weight:600; padding:7px 11px; border-radius:7px;
+    border:1px solid var(--panel-border); background:#1c2531; color:var(--text-primary); cursor:pointer; }
+  button:hover:not(:disabled) { border-color:var(--accent-amber); }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  .map-canvas-wrap { background:#0a0e14; padding:10px; }
+  svg#airfield { width:100%; height:auto; display:block; }
+  .veh-icon { transition: transform 0.85s ease; }
+  .map-caption { padding:10px 14px 14px; font-size:12px; color:var(--text-muted); line-height:1.5; border-top:1px solid var(--panel-border); }
+  .side-panel { display:flex; flex-direction:column; }
+  .block { padding:12px 14px; border-bottom:1px solid var(--panel-border); }
+  .block-head { font-size:13px; font-weight:600; margin-bottom:2px; }
+  .block-sub { font-size:11.5px; color:var(--text-muted); margin-bottom:10px; }
+  .role-toggle { display:flex; gap:6px; margin-bottom:4px; }
+  .role-btn { flex:1; font-size:11px; line-height:1.3; padding:7px 6px; border-radius:6px; border:1px solid var(--panel-border);
+    background:#1c2531; color:var(--text-muted); cursor:pointer; text-align:center; }
+  .role-btn.active { border-color:var(--accent-amber); color:var(--text-primary); background:rgba(242,169,59,0.12); }
+  #pendingContainer { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+  .pending-card { border:1px solid rgba(242,169,59,0.5); background:rgba(242,169,59,0.08);
+    border-radius:8px; padding:10px; font-size:12.5px; line-height:1.5; }
+  .pending-card .pending-title { font-weight:600; margin-bottom:5px; color:var(--accent-amber); }
+  .pending-actions { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+  .pending-actions button { width:100%; font-size:12.5px; padding:7px 10px; }
+  .btn-grant { border-color:rgba(55,214,122,0.5); color:var(--accent-safe); }
+  .btn-noauth { border-color:rgba(78,161,255,0.4); color:var(--text-primary); }
+  .btn-unannounced { border-color:rgba(255,77,79,0.4); color:var(--text-primary); }
+  .btn-return { color:var(--text-muted); }
+  .rollcall-note { font-size:11px; color:var(--text-muted); margin:6px 0 0; }
+  #vehicleList { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+  .vehicle-row { display:flex; align-items:center; gap:6px; }
+  .vname-input { flex:1; min-width:0; font-family:var(--font-ui); font-size:12px; padding:6px 7px; border-radius:6px;
+    border:1px solid var(--panel-border); background:#0f151c; color:var(--text-primary); }
+  .track-badge { font-family:var(--font-mono); font-size:9px; color:var(--text-muted); white-space:nowrap; }
+  .status-badge { font-family:var(--font-mono); font-size:9px; padding:3px 7px; border-radius:10px; white-space:nowrap;
+    background:rgba(55,214,122,.12); color:var(--accent-safe); }
+  .status-badge.pending { background:rgba(242,169,59,.12); color:var(--accent-amber); }
+  .status-badge.working { background:rgba(78,161,255,.12); color:var(--accent-info); }
+  .status-badge.alert { background:rgba(255,77,79,.14); color:var(--accent-alert); }
+  .row-start-btn { padding:6px 9px; font-size:12px; }
+  .guest-form { display:flex; gap:6px; }
+  .guest-form input { flex:1; min-width:0; font-size:12px; padding:7px 8px; border-radius:6px; border:1px solid var(--panel-border);
+    background:#0f151c; color:var(--text-primary); }
+  .guest-form button { border-color:rgba(242,169,59,.45); color:var(--accent-amber); white-space:nowrap; }
+  .block p { font-size:12px; color:var(--text-muted); line-height:1.55; margin:0 0 8px; }
+  .future-note { font-size:11px; color:var(--text-muted); border-top:1px dashed var(--panel-border); padding-top:8px; margin:0; }
+  .log-panel-inner { display:flex; flex-direction:column; flex:1; min-height:170px; }
+  .log-head { padding:12px 14px; border-bottom:1px solid var(--panel-border); font-size:13px; font-weight:600; }
+  .log-list { list-style:none; margin:0; padding:8px 10px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:6px; max-height:260px; }
+  .log-list li { font-family:var(--font-mono); font-size:11.5px; line-height:1.5; padding:7px 9px; border-radius:6px;
+    background:rgba(255,255,255,0.03); border-left:2px solid var(--panel-border); color:var(--text-muted); }
+  .log-list li.alert { color:var(--accent-alert); border-left-color:var(--accent-alert); background:rgba(255,77,79,0.08); }
+  .log-list li.info { color:var(--text-primary); border-left-color:var(--accent-amber); }
+  .log-list li.working { color:var(--text-primary); border-left-color:var(--accent-info); }
+  .log-list li.authorized { color:var(--accent-safe); border-left-color:var(--accent-safe); background:rgba(55,214,122,0.08); }
+  .log-empty { color:var(--text-muted); font-size:12.5px; padding:6px 4px; }
+  .fallback-note { padding:12px 14px; margin-bottom:14px; border:1px solid rgba(255,77,79,0.4); background:rgba(255,77,79,0.08);
+    border-radius:8px; font-size:12.5px; color:var(--text-primary); line-height:1.6; }
+  .fallback-note code { background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:4px; }
+  footer.page-foot { margin-top:22px; font-size:12px; color:var(--text-muted); line-height:1.6; max-width:74ch; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page-head">
+    <p class="eyebrow">JANNEPIIPPAA OY — RIAS KONSEPTIDEMO (Supabase) <span class="live-badge" id="liveBadge">⏳ yhdistetään…</span></p>
+    <h1>RIAS – julkisesti jaettava live-demo</h1>
+    <p class="lede">
+      Tämä versio käyttää omaa Supabase-tietokantaasi eikä Claude-tiliä, joten linkin
+      voi jakaa kenelle tahansa (kun tämä tiedosto on julkaistu esim. GitHub Pagesissa) —
+      ei kirjautumista, ei organisaatiorajoitusta. Sama sääntölogiikka kuin aiemmissa
+      versioissa: <b>lupavalvonta</b> torni auki -tilassa, itsenäinen radioilmoittautuminen
+      torni kiinni -tilassa, yleiskutsu ja poistumiskuittaus.
+    </p>
+  </header>
+
+  <div class="layout">
+
+    <section class="panel map-panel">
+      <div class="map-toolbar">
+        <span class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">Tila: normaali</span></span>
+        <div class="spacer"></div>
+        <button id="btnReset">↺ Alkutilaan</button>
+      </div>
+
+      <div class="map-canvas-wrap">
+        <svg id="airfield" viewBox="0 0 1000 460" xmlns="http://www.w3.org/2000/svg">
+
+          <polygon points="60,150 760,150 760,40 940,40 940,420 60,420"
+            fill="none" stroke="#f2a93b" stroke-width="2" stroke-dasharray="8 5" opacity="0.75" />
+          <text x="66" y="412" font-family="JetBrains Mono, monospace" font-size="11" fill="#f2a93b">ATC SER BDRY — luvanvarainen alue</text>
+
+          <rect x="120" y="225" width="760" height="100" fill="#ff4d4f" opacity="0.06" />
+          <rect x="120" y="225" width="760" height="100" fill="none" stroke="#ff4d4f" stroke-width="1.2" stroke-dasharray="3 4" opacity="0.55" />
+          <text x="126" y="219" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#ff8a8c">kiitotien suoja-alue (STRIP)</text>
+
+          <rect x="760" y="40" width="180" height="110" fill="#1b2734" stroke="#324255" stroke-width="1"/>
+          <text x="772" y="55" font-family="Inter, sans-serif" font-size="10.5" fill="#8a97a8">ASEMATASO</text>
+          <rect x="775" y="60" width="42" height="34" fill="none" stroke="#4a5b6e" stroke-width="1"/>
+          <text x="783" y="80" font-family="JetBrains Mono, monospace" font-size="10" fill="#7c8ba0">1</text>
+          <rect x="825" y="60" width="42" height="34" fill="none" stroke="#4a5b6e" stroke-width="1"/>
+          <text x="830" y="80" font-family="JetBrains Mono, monospace" font-size="10" fill="#7c8ba0">1A</text>
+          <rect x="775" y="102" width="42" height="34" fill="none" stroke="#4a5b6e" stroke-width="1"/>
+          <text x="783" y="122" font-family="JetBrains Mono, monospace" font-size="10" fill="#7c8ba0">2</text>
+          <rect x="825" y="102" width="42" height="34" fill="none" stroke="#4a5b6e" stroke-width="1"/>
+          <text x="830" y="122" font-family="JetBrains Mono, monospace" font-size="10" fill="#7c8ba0">2A</text>
+
+          <rect x="802" y="150" width="36" height="150" fill="#39485a" />
+          <text x="808" y="170" font-family="JetBrains Mono, monospace" font-size="11" fill="#c3ccd8">D</text>
+
+          <line x1="796" y1="210" x2="844" y2="210" stroke="#f2a93b" stroke-width="3" stroke-dasharray="6 4" />
+          <text x="690" y="205" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#f2a93b">odotuspaikka</text>
+
+          <rect x="150" y="250" width="700" height="50" fill="#c9d1d9" />
+          <line x1="150" y1="275" x2="850" y2="275" stroke="#0d1117" stroke-width="2" stroke-dasharray="14 10" />
+          <text x="118" y="279" font-family="JetBrains Mono, monospace" font-size="13" font-weight="600" fill="#c9d1d9">06</text>
+          <text x="856" y="279" font-family="JetBrains Mono, monospace" font-size="13" font-weight="600" fill="#c9d1d9">24</text>
+
+          <line x1="140" y1="440" x2="140" y2="300" stroke="#5a6b7d" stroke-width="1.5" stroke-dasharray="3 4" opacity="0.6"/>
+          <text x="70" y="452" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#8a97a8">PORTTI (vierailijat, tagi)</text>
+
+        </svg>
+      </div>
+
+      <p class="map-caption">
+        Kaavio on havainnollistava eikä mittakaavassa tarkka. Ympyrät = sovellusseuranta,
+        neliöt = tagiseuranta. Perustuu ais.fi eAIP:n EFLP-tietoihin (06 AUG 2026 -painos).
+      </p>
+    </section>
+
+    <aside class="panel side-panel">
+
+      <div class="block">
+        <div class="block-head">Ajoneuvot seurannassa</div>
+        <div class="block-sub">Nimeä vapaasti — sama sääntö koskee kaikkia. Näkyy kaikille avoinna.</div>
+        <div id="vehicleList"></div>
+        <div class="guest-form">
+          <input type="text" id="guestNameInput" placeholder="esim. LVI-huolto, ABC-123">
+          <button id="btnAddGuest">🏷️ Myönnä tagi</button>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="block-head">Valvomonäkymä</div>
+        <div class="block-sub">Kuka katsoo näyttöä juuri nyt? (jaettu kaikille)</div>
+        <div class="role-toggle">
+          <button class="role-btn active" id="roleAtc">Lennonjohto<br>(torni auki)</button>
+          <button class="role-btn" id="rolePelastus">Pelastus/kunnossapito<br>(torni kiinni)</button>
+        </div>
+        <button id="btnRollCall" style="width:100%; margin-top:8px;">📻 Yleiskutsu: "kiitoalueella olevat ilmoittautukaa"</button>
+        <p class="rollcall-note">Käytä kun torni avautuu kesken toiminnan — kutsuu kaikki alueella olevat ajoneuvot vastaamaan radiolla.</p>
+        <div id="pendingContainer"></div>
+      </div>
+
+      <div class="block">
+        <div class="block-head" style="margin-bottom:8px;">Tulevaa</div>
+        <p class="future-note">
+          Ilma-alusten seuranta ja niiden aiheuttamat hälytykset on suunniteltu
+          myöhempään versioon, ei osa tätä ensimmäistä MVP:tä. Poistuminen suoraan
+          toiselle luvanvaraiselle alueelle (esim. usean kiitotien kentällä) vaatii
+          oman logiikkansa — tässä demossa EFLP:llä on vain yksi kiitotie.
+        </p>
+      </div>
+
+      <div class="log-panel-inner">
+        <div class="log-head">Tapahtumaloki (pysyvä, jaettu)</div>
+        <ul class="log-list" id="logList">
+          <li class="log-empty" id="logEmpty">Ei tapahtumia vielä.</li>
+        </ul>
+      </div>
+    </aside>
+
+  </div>
+
+  <footer class="page-foot">
+    Konseptidemo eikä yhteydessä oikeisiin seurantalaitteisiin tai ATS-järjestelmiin.
+    Tila ja tapahtumaloki jaetaan Supabase-tietokannan kautta kaikille, joilla on tämä
+    linkki — anon-avaimella auki, joten ennen laajempaa käyttöä kannattaa lisätä
+    Supabase Auth ja tiukempi RLS. Torni kiinni -tilassa ajoneuvo toimii ajoneuvo- ja
+    ajoluvan varassa ja ilmoittaa liikkeestään VHF-taajuudella (EU 139/2014,
+    valvomattoman lentopaikan menettely) — tämä ei ole kiitotiepoikkeama. Jokainen
+    ajoneuvo on itsenäinen toimija: samat säännöt koskevat kaikkia yhtä aikaa liikkeellä
+    olevia ajoneuvoja erikseen. Digitaalinen lupa-toiminto torni auki -tilassa on
+    valvomolle vapaaehtoinen lisätyökalu — se ei korvaa RTF-radiolla annettavaa lupaa.
+    Lähde: ais.fi eAIP, EF-AD 2 EFLP.
+  </footer>
+
+</div>
+
+<script>
+// ====== TÄYTÄ NÄMÄ OMASTA SUPABASE-PROJEKTISTASI (Project Settings -> API) ======
+const SUPABASE_URL = 'https://jqmlsxltlpffwcnlrqao.supabase.co';        // esim. https://xxxxx.supabase.co
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxbWxzeGx0bHBmZndjbmxycWFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3OTc2MTQsImV4cCI6MjEwNTM3MzYxNH0.8FLEn8XfBjot6elo40e4oNop1c63-t9QG9hw_TrZIn0';
+// =================================================================================
+
+(async function () {
+  var statusPill = document.getElementById('statusPill');
+  var statusText = document.getElementById('statusText');
+  var logList = document.getElementById('logList');
+  var btnReset = document.getElementById('btnReset');
+  var roleAtc = document.getElementById('roleAtc');
+  var rolePelastus = document.getElementById('rolePelastus');
+  var pendingContainer = document.getElementById('pendingContainer');
+  var vehicleListEl = document.getElementById('vehicleList');
+  var guestNameInput = document.getElementById('guestNameInput');
+  var btnAddGuest = document.getElementById('btnAddGuest');
+  var btnRollCall = document.getElementById('btnRollCall');
+  var liveBadge = document.getElementById('liveBadge');
+  var svg = document.getElementById('airfield');
+  var svgNS = 'http://www.w3.org/2000/svg';
+
+  if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_URL' || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY === 'YOUR_SUPABASE_ANON_KEY') {
+    var note = document.createElement('div');
+    note.className = 'fallback-note';
+    note.innerHTML = 'Supabase-asetuksia ei ole vielä täytetty. Avaa tämä tiedosto tekstieditorilla ja korvaa <code>SUPABASE_URL</code> ja <code>SUPABASE_ANON_KEY</code> omasta Supabase-projektistasi (Project Settings → API), sen jälkeen kun olet ensin ajanut <code>rias-supabase-schema.sql</code>-tiedoston Supabasen SQL Editorissa.';
+    document.querySelector('.wrap').insertBefore(note, document.querySelector('.layout'));
+    liveBadge.textContent = '⚠ asetukset puuttuvat';
+    liveBadge.style.color = '#ff4d4f';
+    return;
+  }
+
+  var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  var state = { role: 'atc', vehicles: {} };
+  var rendered = {};
+  var inFlight = {};
+
+  function posFor(v) {
+    if (v.phase === 'apron') { return { x: v.start_x, y: v.start_y }; }
+    if (v.route_mode === 'gate') { return v.phase === 'hold' ? { x: v.lane_x, y: 335 } : { x: v.lane_x, y: 300 }; }
+    return v.phase === 'hold' ? { x: v.lane_x, y: 210 } : { x: v.lane_x, y: 280 };
+  }
+  function fillFor(visual) {
+    return visual === 'alert' ? '#ff4d4f' : visual === 'pending' ? '#f2a93b' : visual === 'working' ? '#4ea1ff' : '#37d67a';
+  }
+  function svgEl(tag, attrs) {
+    var e = document.createElementNS(svgNS, tag);
+    for (var k in attrs) { e.setAttribute(k, attrs[k]); }
+    return e;
+  }
+  function makeBtn(label, cls, handler) {
+    var b = document.createElement('button');
+    b.textContent = label; if (cls) { b.className = cls; }
+    b.addEventListener('click', handler);
+    return b;
+  }
+
+  async function logAdd(text, kind) {
+    try { await supabase.from('log').insert({ text: text, kind: kind || 'info' }); } catch (e) { console.error(e); }
+  }
+
+  function ensureRendered(id, v) {
+    if (rendered[id]) { return rendered[id]; }
+    var p = { x: v.start_x, y: v.start_y };
+    var groupEl = svgEl('g', { id: id, class: 'veh-icon', transform: 'translate(' + p.x + ',' + p.y + ')' });
+    var dotEl, ringEl;
+    if (v.tracking === 'tag') {
+      dotEl = svgEl('rect', { x: -9, y: -9, width: 18, height: 18, rx: 3, fill: '#37d67a', stroke: '#0d1117', 'stroke-width': 1.5 });
+      ringEl = svgEl('rect', { x: -15, y: -15, width: 30, height: 30, rx: 5, fill: 'none', stroke: '#ff4d4f', 'stroke-width': 2, opacity: 0 });
+    } else {
+      dotEl = svgEl('circle', { r: 10, fill: '#37d67a', stroke: '#0d1117', 'stroke-width': 1.5 });
+      ringEl = svgEl('circle', { r: 16, fill: 'none', stroke: '#ff4d4f', 'stroke-width': 2, opacity: 0 });
+    }
+    var label = svgEl('text', { x: 0, y: -15, 'text-anchor': 'middle', 'font-family': 'JetBrains Mono, monospace', 'font-size': 9, fill: '#e7edf5', 'font-weight': 600 });
+    label.textContent = id === 'v1' ? '1' : id === 'v2' ? '2' : '';
+    groupEl.appendChild(dotEl); groupEl.appendChild(ringEl); groupEl.appendChild(label);
+    svg.appendChild(groupEl);
+
+    var row = document.createElement('div');
+    row.className = 'vehicle-row';
+    var nameInput = document.createElement('input');
+    nameInput.type = 'text'; nameInput.className = 'vname-input'; nameInput.value = v.label;
+    nameInput.addEventListener('change', function () {
+      supabase.from('vehicles').update({ label: nameInput.value || v.label }).eq('id', id).then(refetchVehicles);
+    });
+    row.appendChild(nameInput);
+    var trackBadge = document.createElement('span');
+    trackBadge.className = 'track-badge';
+    trackBadge.textContent = v.tracking === 'tag' ? '🏷️ tagi' : '📱 sovellus';
+    row.appendChild(trackBadge);
+    var statusBadge = document.createElement('span');
+    statusBadge.className = 'status-badge';
+    row.appendChild(statusBadge);
+    var rowBtn = document.createElement('button');
+    rowBtn.className = 'row-start-btn';
+    rowBtn.addEventListener('click', function () {
+      var cur = state.vehicles[id];
+      if (!cur) { return; }
+      if (cur.phase === 'apron') { doStart(id); }
+      else if (cur.phase === 'strip') { doExit(id); }
+    });
+    row.appendChild(rowBtn);
+    vehicleListEl.appendChild(row);
+
+    rendered[id] = { groupEl: groupEl, dotEl: dotEl, ringEl: ringEl, statusBadgeEl: statusBadge, rowBtn: rowBtn, nameInput: nameInput };
+    return rendered[id];
+  }
+
+  function render() {
+    Object.keys(state.vehicles).forEach(function (id) {
+      var v = state.vehicles[id];
+      var r = ensureRendered(id, v);
+      if (document.activeElement !== r.nameInput) { r.nameInput.value = v.label; }
+      var p = posFor(v);
+      r.groupEl.setAttribute('transform', 'translate(' + p.x + ',' + p.y + ')');
+      r.dotEl.setAttribute('fill', fillFor(v.visual));
+      r.ringEl.setAttribute('opacity', v.visual === 'alert' ? '1' : '0');
+      r.statusBadgeEl.className = 'status-badge' + (v.visual !== 'normal' ? ' ' + v.visual : '');
+      r.statusBadgeEl.textContent = v.visual === 'alert' ? 'HÄLYTYS' : v.visual === 'pending' ? 'odottaa' : v.visual === 'working' ? 'alueella' : (v.phase === 'strip' ? 'alueella' : 'normaali');
+      r.rowBtn.textContent = v.phase === 'strip' ? '⏏' : '▶';
+      r.rowBtn.disabled = v.phase === 'hold' || v.roll_call_pending || !!inFlight[id];
+    });
+
+    roleAtc.classList.toggle('active', state.role === 'atc');
+    rolePelastus.classList.toggle('active', state.role !== 'atc');
+    btnRollCall.disabled = state.role !== 'atc';
+
+    var vals = Object.keys(state.vehicles).map(function (id) { return state.vehicles[id]; });
+    var anyAlert = vals.some(function (v) { return v.visual === 'alert'; });
+    var anyPending = vals.some(function (v) { return v.phase === 'hold'; });
+    var anyWorking = vals.some(function (v) { return v.phase === 'strip'; });
+    statusPill.classList.remove('pending', 'working', 'alert');
+    if (anyAlert) { statusPill.classList.add('alert'); statusText.textContent = 'HÄLYTYS – kiitotiepoikkeama'; }
+    else if (anyPending) { statusPill.classList.add('pending'); statusText.textContent = 'Odottaa lupaa / päätöstä'; }
+    else if (anyWorking) { statusPill.classList.add('working'); statusText.textContent = 'Ajoneuvo(t) alueella'; }
+    else { statusText.textContent = 'Tila: normaali'; }
+
+    renderCards();
+  }
+
+  function renderCards() {
+    pendingContainer.innerHTML = '';
+    Object.keys(state.vehicles).forEach(function (id) {
+      if (inFlight[id]) { return; }
+      var v = state.vehicles[id];
+      if (v.phase === 'hold') { pendingContainer.appendChild(buildHoldCard(id, v)); }
+      else if (v.roll_call_pending) { pendingContainer.appendChild(buildRollCallCard(id, v)); }
+    });
+  }
+
+  function buildHoldCard(id, v) {
+    var card = document.createElement('div'); card.className = 'pending-card';
+    var title = document.createElement('div'); title.className = 'pending-title'; title.textContent = v.label + ' odottaa';
+    var body = document.createElement('div');
+    var actions = document.createElement('div'); actions.className = 'pending-actions';
+    if (state.role === 'atc') {
+      body.textContent = v.label + ' (' + (v.tracking === 'tag' ? 'tagi' : 'sovellus') + ') pyytää lupaa siirtyä kiitotien suoja-alueelle. Voit myöntää luvan sovelluksesta tai jättää sen huomiotta.';
+      actions.appendChild(makeBtn('✓ Anna lupa (sovellus)', 'btn-grant', function () { doGrant(id); }));
+      actions.appendChild(makeBtn('→ Jatkaa ilman lupaa', 'btn-noauth', function () { doProceedControlled(id); }));
+      actions.appendChild(makeBtn('← Peruuttaa ja palaa', 'btn-return', function () { doReturn(id); }));
+    } else {
+      body.innerHTML = '📻 "Lappeenrannan liikenne, ' + v.label.toLowerCase() + ' ajaa kiitoalueelle." Torni kiinni — ajoneuvo- ja ajolupa riittää, erillistä lupaa ei myönnä kukaan, kunhan ilmoittautuminen tehdään.';
+      actions.appendChild(makeBtn('📻 Ilmoittautuu ja jatkaa', 'btn-noauth', function () { doProceedUncontrolled(id); }));
+      actions.appendChild(makeBtn('🚫 Ajaa ilmoittautumatta', 'btn-unannounced', function () { doProceedUnannounced(id); }));
+      actions.appendChild(makeBtn('← Peruuttaa ja palaa', 'btn-return', function () { doReturn(id); }));
+    }
+    card.appendChild(title); card.appendChild(body); card.appendChild(actions);
+    return card;
+  }
+
+  function buildRollCallCard(id, v) {
+    var card = document.createElement('div'); card.className = 'pending-card';
+    var title = document.createElement('div'); title.className = 'pending-title'; title.textContent = v.label + ' ei vastannut heti yleiskutsuun';
+    var body = document.createElement('div'); body.textContent = 'Mitä tapahtui, kun torni kutsui kiitoalueella olevat ilmoittautumaan?';
+    var actions = document.createElement('div'); actions.className = 'pending-actions';
+    actions.appendChild(makeBtn('✓ Vastasi viiveellä — tilanne selvisi', 'btn-grant', function () {
+      supabase.from('vehicles').update({ announced: true, visual: 'working', roll_call_pending: false }).eq('id', id).then(refetchVehicles);
+      logAdd(v.label + ' vastasi viiveellä yleiskutsuun, tilanne selvisi (esim. radio oli mykistettynä). Ei kiitotiepoikkeamaa.', 'authorized');
+    }));
+    actions.appendChild(makeBtn('✗ Ei vastausta — poikkeama vahvistuu', 'btn-unannounced', function () {
+      supabase.from('vehicles').update({ roll_call_pending: false }).eq('id', id).then(refetchVehicles);
+      logAdd('POIKKEAMA VAHVISTETTU: ' + v.label + ' ei vastannut yleiskutsuun. Vaatii välitöntä toimenpidettä.', 'alert');
+    }));
+    card.appendChild(title); card.appendChild(body); card.appendChild(actions);
+    return card;
+  }
+
+  function renderLog(rows) {
+    logList.innerHTML = '';
+    if (!rows || rows.length === 0) {
+      var li0 = document.createElement('li'); li0.className = 'log-empty'; li0.textContent = 'Ei tapahtumia vielä.'; logList.appendChild(li0); return;
+    }
+    rows.slice().reverse().forEach(function (data) {
+      var li = document.createElement('li');
+      if (data.kind) { li.className = data.kind; }
+      var t = new Date(data.ts).toLocaleTimeString('fi-FI');
+      li.textContent = '[' + t + '] ' + data.text;
+      logList.appendChild(li);
+    });
+    logList.scrollTop = logList.scrollHeight;
+  }
+
+  function doStart(id) {
+    var v = state.vehicles[id]; if (!v || v.phase !== 'apron' || inFlight[id]) { return; }
+    inFlight[id] = true; render();
+    logAdd(v.label + ' lähti liikkeelle kohti odotuspaikkaa.', 'info');
+    setTimeout(function () {
+      delete inFlight[id];
+      supabase.from('vehicles').update({ phase: 'hold', announced: false, visual: 'pending', roll_call_pending: false }).eq('id', id).then(refetchVehicles);
+      logAdd(v.label + ' saapui odotuspaikalle.', 'info');
+    }, 850);
+  }
+  function doGrant(id) {
+    var v = state.vehicles[id]; if (!v || inFlight[id]) { return; }
+    inFlight[id] = true; render();
+    logAdd('Valvomo (lennonjohto) antoi digitaalisen luvan: ' + v.label + '.', 'info');
+    setTimeout(function () {
+      delete inFlight[id];
+      supabase.from('vehicles').update({ phase: 'strip', announced: true, visual: 'normal' }).eq('id', id).then(refetchVehicles);
+      logAdd(v.label + ' siirtyi kiitotien suoja-alueelle luvan mukaisesti (digitaalinen lupa myönnetty).', 'authorized');
+    }, 800);
+  }
+  function doProceedControlled(id) {
+    var v = state.vehicles[id]; if (!v || inFlight[id]) { return; }
+    inFlight[id] = true; render();
+    logAdd(v.label + ' jatkaa matkaa omalla päätöksellä ilman myönnettyä digitaalista lupaa.', 'info');
+    setTimeout(function () {
+      delete inFlight[id];
+      supabase.from('vehicles').update({ phase: 'strip', announced: false, visual: 'alert' }).eq('id', id).then(refetchVehicles);
+      logAdd('HÄLYTYS: ' + v.label + ' siirtyi kiitotien suoja-alueelle ilman lupaa (RWY 06/24).', 'alert');
+    }, 800);
+  }
+  function doProceedUncontrolled(id) {
+    var v = state.vehicles[id]; if (!v || inFlight[id]) { return; }
+    inFlight[id] = true; render();
+    logAdd(v.label + ' ilmoitti radiolla siirtymisestä alueelle (ajoneuvo- ja ajolupa, ei ATS:ää). Ei poikkeamaa.', 'working');
+    setTimeout(function () {
+      delete inFlight[id];
+      supabase.from('vehicles').update({ phase: 'strip', announced: true, visual: 'working' }).eq('id', id).then(refetchVehicles);
+    }, 800);
+  }
+  function doProceedUnannounced(id) {
+    var v = state.vehicles[id]; if (!v || inFlight[id]) { return; }
+    inFlight[id] = true; render();
+    setTimeout(function () {
+      delete inFlight[id];
+      supabase.from('vehicles').update({ phase: 'strip', announced: false, visual: 'alert' }).eq('id', id).then(refetchVehicles);
+      logAdd('POIKKEAMA: ' + v.label + ' on kiitoalueella ilman ilmoittautumista (ei radiokutsua eikä sovellusvahvistusta).', 'alert');
+    }, 800);
+  }
+  function doReturn(id) {
+    var v = state.vehicles[id]; if (!v || inFlight[id]) { return; }
+    inFlight[id] = true; render();
+    logAdd(v.label + ' peruutti ja palasi asematasolle. Aluetta ei ylitetty.', 'info');
+    setTimeout(function () {
+      delete inFlight[id];
+      supabase.from('vehicles').update({ phase: 'apron', visual: 'normal', announced: false }).eq('id', id).then(refetchVehicles);
+    }, 800);
+  }
+  function doExit(id) {
+    var v = state.vehicles[id]; if (!v || v.phase !== 'strip' || inFlight[id]) { return; }
+    inFlight[id] = true; render();
+    setTimeout(function () {
+      delete inFlight[id];
+      supabase.from('vehicles').update({ phase: 'apron', visual: 'normal', announced: false, roll_call_pending: false }).eq('id', id).then(refetchVehicles);
+      logAdd(v.label + ' poistui kiitoalueelta.', 'authorized');
+    }, 800);
+  }
+  async function doRollCall() {
+    var ids = Object.keys(state.vehicles).filter(function (id) { return state.vehicles[id].phase === 'strip'; });
+    await logAdd('Lennonjohto: "Kiitoalueella olevat ilmoittautukaa." (yleiskutsu VHF-taajuudella)', 'info');
+    if (ids.length === 0) { await logAdd('Ei ajoneuvoja kiitoalueella juuri nyt.', 'info'); return; }
+    for (var i = 0; i < ids.length; i++) {
+      var id = ids[i]; var v = state.vehicles[id];
+      if (v.announced) {
+        await logAdd(v.label + ' vastasi yleiskutsuun heti: tilanne OK, jatkaa työtä.', 'authorized');
+      } else {
+        await supabase.from('vehicles').update({ roll_call_pending: true }).eq('id', id);
+      }
+    }
+    refetchVehicles();
+  }
+
+  roleAtc.addEventListener('click', function () { supabase.from('world_state').update({ role: 'atc' }).eq('id', 1).then(refetchWorld); });
+  rolePelastus.addEventListener('click', function () { supabase.from('world_state').update({ role: 'pelastus' }).eq('id', 1).then(refetchWorld); });
+  btnRollCall.addEventListener('click', function () { doRollCall(); });
+
+  btnAddGuest.addEventListener('click', async function () {
+    var name = guestNameInput.value.trim();
+    if (!name) { return; }
+    var guestCount = Object.keys(state.vehicles).filter(function (id) { return state.vehicles[id].route_mode === 'gate'; }).length;
+    var laneX = 140 + guestCount * 22;
+    var id = 'guest_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    await supabase.from('vehicles').insert({ id: id, label: name, tracking: 'tag', route_mode: 'gate', lane_x: laneX, start_x: laneX, start_y: 440, phase: 'apron' });
+    await logAdd('Uusi ajoneuvolupa ja tagi myönnetty: ' + name + '.', 'info');
+    guestNameInput.value = '';
+    refetchVehicles();
+  });
+  guestNameInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { btnAddGuest.click(); } });
+
+  btnReset.addEventListener('click', async function () {
+    inFlight = {};
+    await supabase.from('vehicles').update({ phase: 'apron', visual: 'normal', announced: false, roll_call_pending: false }).eq('id', 'v1');
+    await supabase.from('vehicles').update({ phase: 'apron', visual: 'normal', announced: false, roll_call_pending: false }).eq('id', 'v2');
+    await supabase.from('vehicles').delete().not('id', 'in', '("v1","v2")');
+    await logAdd('Näkymä palautettu alkutilaan (ajoneuvot).', 'info');
+    refetchVehicles();
+  });
+
+  async function refetchVehicles() {
+    var res = await supabase.from('vehicles').select('*').order('id');
+    if (res.error) { console.error(res.error); return; }
+    var map = {};
+    res.data.forEach(function (row) { map[row.id] = row; });
+    state.vehicles = map;
+    render();
+  }
+  async function refetchWorld() {
+    var res = await supabase.from('world_state').select('*').eq('id', 1).single();
+    if (res.error) { console.error(res.error); return; }
+    state.role = res.data.role || 'atc';
+    render();
+  }
+  async function refetchLog() {
+    var res = await supabase.from('log').select('*').order('ts', { ascending: false }).limit(40);
+    if (res.error) { console.error(res.error); return; }
+    renderLog(res.data);
+  }
+
+  async function init() {
+    try {
+      await refetchWorld();
+      await refetchVehicles();
+      await refetchLog();
+      liveBadge.textContent = '● jaettu näkymä käytössä';
+
+      supabase.channel('rias-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, refetchVehicles)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'world_state' }, refetchWorld)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'log' }, refetchLog)
+        .subscribe();
+    } catch (e) {
+      console.error(e);
+      var note = document.createElement('div');
+      note.className = 'fallback-note';
+      note.textContent = 'Yhteys Supabaseen epäonnistui. Tarkista SUPABASE_URL/SUPABASE_ANON_KEY ja että rias-supabase-schema.sql on ajettu.';
+      document.querySelector('.wrap').insertBefore(note, document.querySelector('.layout'));
+      liveBadge.textContent = '⚠ ei yhteyttä';
+      liveBadge.style.color = '#ff4d4f';
+    }
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
