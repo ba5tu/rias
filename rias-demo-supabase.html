@@ -46,6 +46,8 @@
   button:disabled { opacity:.4; cursor:not-allowed; }
   .map-canvas-wrap { background:#0a0e14; padding:10px; }
   svg#airfield { width:100%; height:auto; display:block; }
+  #photoWrap svg { width:100%; height:auto; display:block; border-radius:6px; }
+  #photoWrap[hidden], .map-canvas-wrap[hidden] { display:none; }
   .veh-icon { transition: transform 0.85s ease; }
   .map-caption { padding:10px 14px 14px; font-size:12px; color:var(--text-muted); line-height:1.5; border-top:1px solid var(--panel-border); }
   .side-panel { display:flex; flex-direction:column; }
@@ -121,10 +123,11 @@
       <div class="map-toolbar">
         <span class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">Tila: normaali</span></span>
         <div class="spacer"></div>
+        <button id="btnView" aria-pressed="false" title="Vaihda kaavion ja oikean lentoaseman ilmakuvan välillä">🛰 Ilmakuva</button>
         <button id="btnReset">↺ Alkutilaan</button>
       </div>
 
-      <div class="map-canvas-wrap">
+      <div class="map-canvas-wrap" id="schemaWrap">
         <svg id="airfield" viewBox="0 0 1000 460" xmlns="http://www.w3.org/2000/svg">
 
           <polygon points="60,150 760,150 760,40 940,40 940,420 60,420"
@@ -163,9 +166,32 @@
         </svg>
       </div>
 
-      <p class="map-caption">
+      <div class="map-canvas-wrap" id="photoWrap" hidden>
+        <svg id="airfieldPhoto" viewBox="0 0 2946 1730" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Lappeenrannan lentoaseman ilmakuva, johon on piirretty kiitotie ja suoja-alue">
+          <image href="eflp-ilmakuva.jpg" x="0" y="0" width="2946" height="1730" preserveAspectRatio="none"/>
+          <polygon points="328.5,1520.0 2735.9,485.5 2617.5,210.0 210.0,1244.4" fill="#ff4d4f" fill-opacity="0.10" stroke="#ff4d4f" stroke-width="7" stroke-dasharray="26 16"/>
+          <polygon points="336.3,1386.1 2633.4,399.0 2609.7,343.9 312.6,1331.0" fill="#ffffff" fill-opacity="0.10" stroke="#ffffff" stroke-opacity="0.8" stroke-width="3"/>
+          <line x1="324.4" y1="1358.5" x2="2621.6" y2="371.4" stroke="#ffffff" stroke-opacity="0.55" stroke-width="3" stroke-dasharray="30 22"/>
+          <circle cx="2091" cy="877" r="52" fill="none" stroke="#ffffff" stroke-width="5"/>
+          <g font-family="JetBrains Mono, monospace" font-weight="600" fill="#ffffff" stroke="#000" stroke-width="7" paint-order="stroke" font-size="46">
+            <text x="131" y="1441" text-anchor="middle" >RWY 06</text>
+            <text x="2759" y="312" text-anchor="middle" >24</text>
+            <text x="1388" y="668" text-anchor="middle" fill="#ff8a8c">SUOJA-ALUE (STRIP)</text>
+            <text x="2091" y="977" text-anchor="middle">ASEMATASO</text>
+          </g>
+          <rect x="18" y="1664" width="900" height="48" rx="8" fill="#000" fill-opacity="0.55"/>
+          <text x="34" y="1696" font-family="Inter, sans-serif" font-size="30" fill="#fff">Maanmittauslaitoksen ortokuva (10/2026), kuvausvuosi 2023. CC BY 4.0</text>
+        </svg>
+      </div>
+
+      <p class="map-caption" id="schemaCaption">
         Kaavio on havainnollistava eikä mittakaavassa tarkka. Ympyrät = sovellusseuranta,
         neliöt = tagiseuranta. Perustuu ais.fi eAIP:n EFLP-tietoihin (06 AUG 2026 -painos).
+      </p>
+      <p class="map-caption" id="photoCaption" hidden>
+        Lappeenrannan lentoaseman (EFLP) ilmakuva, johon on piirretty kiitotie ja suoja-alue (STRIP, 2620 x 300 m, laskettu eAIP:n kynnyskoordinaateista).
+        Ilmakuva on havainnollistava tausta. Demon ajoneuvot liikkuvat kaaviossa; varsinaisessa tuotteessa ne näkyvät tällä kartalla.
+        Lähde: Maanmittauslaitoksen ortokuva (10/2026), CC BY 4.0.
       </p>
     </section>
 
@@ -582,6 +608,21 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
   }
 
   init();
+})();
+</script>
+<script>
+(function () {
+  var btn = document.getElementById('btnView');
+  var schema = document.getElementById('schemaWrap'), foto = document.getElementById('photoWrap');
+  var schemaCap = document.getElementById('schemaCaption'), fotoCap = document.getElementById('photoCaption');
+  if (!btn || !schema || !foto) { return; }
+  btn.addEventListener('click', function () {
+    var naytaFoto = foto.hidden;
+    foto.hidden = !naytaFoto; schema.hidden = naytaFoto;
+    fotoCap.hidden = !naytaFoto; schemaCap.hidden = naytaFoto;
+    btn.setAttribute('aria-pressed', naytaFoto ? 'true' : 'false');
+    btn.textContent = naytaFoto ? '◫ Kaavio' : '🛰 Ilmakuva';
+  });
 })();
 </script>
 </body>
