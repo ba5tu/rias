@@ -48,7 +48,7 @@
   svg#airfield { width:100%; height:auto; display:block; }
   #photoWrap svg { width:100%; height:auto; display:block; border-radius:6px; }
   #photoWrap[hidden], .map-canvas-wrap[hidden] { display:none; }
-  .veh-icon { transition: transform 0.85s ease; }
+  .veh-icon, .veh-icon-foto { transition: transform 0.85s ease; }
   .map-caption { padding:10px 14px 14px; font-size:12px; color:var(--text-muted); line-height:1.5; border-top:1px solid var(--panel-border); }
   .side-panel { display:flex; flex-direction:column; }
   .block { padding:12px 14px; border-bottom:1px solid var(--panel-border); }
@@ -179,6 +179,12 @@
             <text x="1388" y="668" text-anchor="middle" fill="#ff8a8c">SUOJA-ALUE (STRIP)</text>
             <text x="2091" y="977" text-anchor="middle">ASEMATASO</text>
           </g>
+          <line x1="2015.1" y1="814.9" x2="2055.6" y2="797.5" stroke="#f2a93b" stroke-width="9" stroke-dasharray="16 10"/>
+          <line x1="459.9" y1="1572.4" x2="429.1" y2="1500.8" stroke="#c3ccd8" stroke-width="5" stroke-dasharray="10 12" stroke-opacity="0.8"/>
+          <g font-family="JetBrains Mono, monospace" font-weight="600" font-size="38" stroke="#000" stroke-width="6" paint-order="stroke">
+            <text x="2184.4" y="722.5" fill="#f2a93b" text-anchor="start">odotuspaikka</text>
+            <text x="476.5" y="1611.0" fill="#c3ccd8" text-anchor="middle">PORTTI (vierailijat, tagi)</text>
+          </g>
           <rect x="18" y="1664" width="900" height="48" rx="8" fill="#000" fill-opacity="0.55"/>
           <text x="34" y="1696" font-family="Inter, sans-serif" font-size="30" fill="#fff">Maanmittauslaitoksen ortokuva (10/2026), kuvausvuosi 2023. CC BY 4.0</text>
         </svg>
@@ -190,7 +196,8 @@
       </p>
       <p class="map-caption" id="photoCaption" hidden>
         Lappeenrannan lentoaseman (EFLP) ilmakuva, johon on piirretty kiitotie ja suoja-alue (STRIP, 2620 x 300 m, laskettu eAIP:n kynnyskoordinaateista).
-        Ilmakuva on havainnollistava tausta. Demon ajoneuvot liikkuvat kaaviossa; varsinaisessa tuotteessa ne näkyvät tällä kartalla.
+        Ajoneuvot liikkuvat samalla tavalla kuin kaaviossa: asematasolta tai portilta odotuspaikalle ja luvan jälkeen suoja-alueelle.
+        Paikat ovat suuntaa antavia (demossa ei ole oikeaa paikannusta); varsinaisessa tuotteessa sijainti tulee ajoneuvon laitteesta.
         Lähde: Maanmittauslaitoksen ortokuva (10/2026), CC BY 4.0.
       </p>
     </section>
@@ -274,6 +281,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
   var btnRollCall = document.getElementById('btnRollCall');
   var liveBadge = document.getElementById('liveBadge');
   var svg = document.getElementById('airfield');
+  var svgFoto = document.getElementById('airfieldPhoto');
   var svgNS = 'http://www.w3.org/2000/svg';
 
   if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_URL' || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY === 'YOUR_SUPABASE_ANON_KEY') {
@@ -297,6 +305,19 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     if (v.route_mode === 'gate') { return v.phase === 'hold' ? { x: v.lane_x, y: 335 } : { x: v.lane_x, y: 300 }; }
     return v.phase === 'hold' ? { x: v.lane_x, y: 210 } : { x: v.lane_x, y: 280 };
   }
+  // Ilmakuvan paikat: kiitotien suuntainen koordinaatisto (1 px = 1 m), origo kynnys 06,
+  // s = matka kiitotietä pitkin, e = etäisyys keskilinjasta kaakkoon. Kaavion paikat muunnetaan tähän.
+  var FOTO = { ax: 324.4, ay: 1358.5, ux: 0.9188, uy: -0.3948, nx: 0.3948, ny: 0.9188, skaala: 3.6 };
+  function fotoXY(s, e) { return { x: FOTO.ax + s * FOTO.ux + e * FOTO.nx, y: FOTO.ay + s * FOTO.uy + e * FOTO.ny }; }
+  function posForFoto(v) {
+    if (v.route_mode === 'gate') {
+      var sg = 40 + (v.lane_x - 140) * 2.5;
+      return fotoXY(sg, v.phase === 'apron' ? 250 : v.phase === 'hold' ? 172 : 95);
+    }
+    var st = 1790 + (v.lane_x - 820) * 2.5;
+    if (v.phase === 'apron') { return fotoXY(1780 + (v.start_x - 820) * 2.4, 215 + (v.start_y - 72) * 5); }
+    return fotoXY(st, v.phase === 'hold' ? 168 : 95);
+  }
   function fillFor(visual) {
     return visual === 'alert' ? '#ff4d4f' : visual === 'pending' ? '#f2a93b' : visual === 'working' ? '#4ea1ff' : '#37d67a';
   }
@@ -316,10 +337,10 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     try { await supabase.from('log').insert({ text: text, kind: kind || 'info' }); } catch (e) { console.error(e); }
   }
 
-  function ensureRendered(id, v) {
-    if (rendered[id]) { return rendered[id]; }
-    var p = { x: v.start_x, y: v.start_y };
-    var groupEl = svgEl('g', { id: id, class: 'veh-icon', transform: 'translate(' + p.x + ',' + p.y + ')' });
+  function fotoTransform(p) { return 'translate(' + p.x.toFixed(1) + ',' + p.y.toFixed(1) + ') scale(' + FOTO.skaala + ')'; }
+  // Ajoneuvon merkki: sama muoto molemmissa näkymissä (ympyrä = sovellus, neliö = tagi). Ilmakuvassa tekstille reunaviiva.
+  function makeIcon(id, v, foto, transform) {
+    var groupEl = svgEl('g', { id: id, class: foto ? 'veh-icon-foto' : 'veh-icon', transform: transform });
     var dotEl, ringEl;
     if (v.tracking === 'tag') {
       dotEl = svgEl('rect', { x: -9, y: -9, width: 18, height: 18, rx: 3, fill: '#37d67a', stroke: '#0d1117', 'stroke-width': 1.5 });
@@ -329,9 +350,21 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
       ringEl = svgEl('circle', { r: 16, fill: 'none', stroke: '#ff4d4f', 'stroke-width': 2, opacity: 0 });
     }
     var label = svgEl('text', { x: 0, y: -15, 'text-anchor': 'middle', 'font-family': 'JetBrains Mono, monospace', 'font-size': 9, fill: '#e7edf5', 'font-weight': 600 });
-    label.textContent = id === 'v1' ? '1' : id === 'v2' ? '2' : '';
+    if (foto) { label.setAttribute('stroke', '#000'); label.setAttribute('stroke-width', 2); label.setAttribute('paint-order', 'stroke'); }
+    label.textContent = id.indexOf('v1') === 0 ? '1' : id.indexOf('v2') === 0 ? '2' : '';
     groupEl.appendChild(dotEl); groupEl.appendChild(ringEl); groupEl.appendChild(label);
+    return { groupEl: groupEl, dotEl: dotEl, ringEl: ringEl };
+  }
+
+  function ensureRendered(id, v) {
+    if (rendered[id]) { return rendered[id]; }
+    var p = { x: v.start_x, y: v.start_y };
+    var kaavioIkoni = makeIcon(id, v, false, 'translate(' + p.x + ',' + p.y + ')');
+    var pf = posForFoto(v);
+    var fotoIkoni = makeIcon(id + '-foto', v, true, fotoTransform(pf));
+    var groupEl = kaavioIkoni.groupEl, dotEl = kaavioIkoni.dotEl, ringEl = kaavioIkoni.ringEl;
     svg.appendChild(groupEl);
+    svgFoto.appendChild(fotoIkoni.groupEl);
 
     var row = document.createElement('div');
     row.className = 'vehicle-row';
@@ -359,19 +392,31 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     row.appendChild(rowBtn);
     vehicleListEl.appendChild(row);
 
-    rendered[id] = { groupEl: groupEl, dotEl: dotEl, ringEl: ringEl, statusBadgeEl: statusBadge, rowBtn: rowBtn, nameInput: nameInput };
+    rendered[id] = { groupEl: groupEl, dotEl: dotEl, ringEl: ringEl, fotoGroupEl: fotoIkoni.groupEl, fotoDotEl: fotoIkoni.dotEl, fotoRingEl: fotoIkoni.ringEl, statusBadgeEl: statusBadge, rowBtn: rowBtn, nameInput: nameInput };
     return rendered[id];
   }
 
   function render() {
+    // Poista näkymät ajoneuvoilta, jotka on poistettu tietokannasta (esim. nollauksessa vierailijat)
+    Object.keys(rendered).forEach(function (id) {
+      if (state.vehicles[id]) { return; }
+      var old = rendered[id];
+      if (old.groupEl.parentNode) { old.groupEl.parentNode.removeChild(old.groupEl); }
+      if (old.fotoGroupEl.parentNode) { old.fotoGroupEl.parentNode.removeChild(old.fotoGroupEl); }
+      if (old.rowBtn.parentNode && old.rowBtn.parentNode.parentNode) { old.rowBtn.parentNode.parentNode.removeChild(old.rowBtn.parentNode); }
+      delete rendered[id];
+    });
     Object.keys(state.vehicles).forEach(function (id) {
       var v = state.vehicles[id];
       var r = ensureRendered(id, v);
       if (document.activeElement !== r.nameInput) { r.nameInput.value = v.label; }
       var p = posFor(v);
       r.groupEl.setAttribute('transform', 'translate(' + p.x + ',' + p.y + ')');
+      r.fotoGroupEl.setAttribute('transform', fotoTransform(posForFoto(v)));
       r.dotEl.setAttribute('fill', fillFor(v.visual));
+      r.fotoDotEl.setAttribute('fill', fillFor(v.visual));
       r.ringEl.setAttribute('opacity', v.visual === 'alert' ? '1' : '0');
+      r.fotoRingEl.setAttribute('opacity', v.visual === 'alert' ? '1' : '0');
       r.statusBadgeEl.className = 'status-badge' + (v.visual !== 'normal' ? ' ' + v.visual : '');
       r.statusBadgeEl.textContent = v.visual === 'alert' ? 'HÄLYTYS' : v.visual === 'pending' ? 'odottaa' : v.visual === 'working' ? 'alueella' : (v.phase === 'strip' ? 'alueella' : 'normaali');
       r.rowBtn.textContent = v.phase === 'strip' ? '⏏' : '▶';
