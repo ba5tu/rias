@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RIAS – konseptidemo EFET (Enontekiö)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #141b24; --panel-border: #26313d;
+    --text-primary: #e7edf5; --text-muted: #8a97a8;
+    --accent-amber: #f2a93b; --accent-safe: #37d67a; --accent-alert: #ff4d4f; --accent-info: #4ea1ff;
+    --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:var(--bg); color:var(--text-primary); font-family:var(--font-ui); }
+  body { min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:20px 16px 60px; }
+  .wrap { width:100%; max-width:1100px; }
+  header.page-head { margin-bottom:18px; }
+  .eyebrow { font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em; color:var(--accent-amber); margin:0 0 6px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .live-badge { font-size:10.5px; padding:2px 8px; border-radius:10px; background:rgba(55,214,122,0.14); color:var(--accent-safe); border:1px solid rgba(55,214,122,0.4); }
+  h1 { font-size:clamp(22px,4vw,30px); font-weight:700; margin:0 0 8px; line-height:1.2; }
+  .lede { color:var(--text-muted); font-size:14.5px; line-height:1.55; max-width:74ch; margin:0 0 6px; }
+  .lede b { color: var(--text-primary); font-weight:600; }
+  .layout { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr); gap:16px; margin-top:20px; }
+  @media (max-width:780px) { .layout { grid-template-columns:1fr; } }
+  .panel { background:var(--panel); border:1px solid var(--panel-border); border-radius:10px; overflow:hidden; }
+  .map-panel { display:flex; flex-direction:column; }
+  .map-toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:12px 14px; border-bottom:1px solid var(--panel-border); }
+  .status-pill { font-family:var(--font-mono); font-size:12.5px; font-weight:600; padding:5px 10px; border-radius:20px;
+    background:rgba(55,214,122,0.12); color:var(--accent-safe); border:1px solid rgba(55,214,122,0.4);
+    display:inline-flex; align-items:center; gap:6px; }
+  .status-pill .dot { width:7px; height:7px; border-radius:50%; background:currentColor; }
+  .status-pill.pending { background:rgba(242,169,59,0.12); color:var(--accent-amber); border-color:rgba(242,169,59,0.5); }
+  .status-pill.working { background:rgba(78,161,255,0.12); color:var(--accent-info); border-color:rgba(78,161,255,0.5); }
+  .status-pill.alert { background:rgba(255,77,79,0.14); color:var(--accent-alert); border-color:rgba(255,77,79,0.55); animation:pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,77,79,.35);} 50%{box-shadow:0 0 0 6px rgba(255,77,79,0);} }
+  .spacer { flex:1; }
+  button { font-family:var(--font-ui); font-size:13px; font-weight:600; padding:7px 11px; border-radius:7px;
+    border:1px solid var(--panel-border); background:#1c2531; color:var(--text-primary); cursor:pointer; }
+  button:hover:not(:disabled) { border-color:var(--accent-amber); }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  .map-canvas-wrap { background:#0a0e14; padding:10px; }
+  svg#airfield { width:100%; height:auto; display:block; }
+  #photoWrap svg { width:100%; height:auto; display:block; border-radius:6px; }
+  #photoWrap[hidden], .map-canvas-wrap[hidden] { display:none; }
+  .veh-icon, .veh-icon-foto { transition: transform 0.85s ease; }
+  .map-caption { padding:10px 14px 14px; font-size:12px; color:var(--text-muted); line-height:1.5; border-top:1px solid var(--panel-border); }
+  .side-panel { display:flex; flex-direction:column; }
+  .block { padding:12px 14px; border-bottom:1px solid var(--panel-border); }
+  .block-head { font-size:13px; font-weight:600; margin-bottom:2px; }
+  .block-sub { font-size:11.5px; color:var(--text-muted); margin-bottom:10px; }
+  .role-toggle { display:flex; gap:6px; margin-bottom:4px; }
+  .role-btn { flex:1; font-size:11px; line-height:1.3; padding:7px 6px; border-radius:6px; border:1px solid var(--panel-border);
+    background:#1c2531; color:var(--text-muted); cursor:pointer; text-align:center; }
+  .role-btn.active { border-color:var(--accent-amber); color:var(--text-primary); background:rgba(242,169,59,0.12); }
+  #pendingContainer { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+  .pending-card { border:1px solid rgba(242,169,59,0.5); background:rgba(242,169,59,0.08);
+    border-radius:8px; padding:10px; font-size:12.5px; line-height:1.5; }
+  .pending-card .pending-title { font-weight:600; margin-bottom:5px; color:var(--accent-amber); }
+  .pending-actions { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+  .pending-actions button { width:100%; font-size:12.5px; padding:7px 10px; }
+  .btn-grant { border-color:rgba(55,214,122,0.5); color:var(--accent-safe); }
+  .btn-noauth { border-color:rgba(78,161,255,0.4); color:var(--text-primary); }
+  .btn-unannounced { border-color:rgba(255,77,79,0.4); color:var(--text-primary); }
+  .btn-return { color:var(--text-muted); }
+  .rollcall-note { font-size:11px; color:var(--text-muted); margin:6px 0 0; }
+  #vehicleList { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+  .vehicle-row { display:flex; align-items:center; gap:6px; }
+  .vname-input { flex:1; min-width:0; font-family:var(--font-ui); font-size:12px; padding:6px 7px; border-radius:6px;
+    border:1px solid var(--panel-border); background:#0f151c; color:var(--text-primary); }
+  .track-badge { font-family:var(--font-mono); font-size:9px; color:var(--text-muted); white-space:nowrap; }
+  .status-badge { font-family:var(--font-mono); font-size:9px; padding:3px 7px; border-radius:10px; white-space:nowrap;
+    background:rgba(55,214,122,.12); color:var(--accent-safe); }
+  .status-badge.pending { background:rgba(242,169,59,.12); color:var(--accent-amber); }
+  .status-badge.working { background:rgba(78,161,255,.12); color:var(--accent-info); }
+  .status-badge.alert { background:rgba(255,77,79,.14); color:var(--accent-alert); }
+  .row-start-btn { padding:6px 9px; font-size:12px; }
+  .guest-form { display:flex; gap:6px; }
+  .guest-form input { flex:1; min-width:0; font-size:12px; padding:7px 8px; border-radius:6px; border:1px solid var(--panel-border);
+    background:#0f151c; color:var(--text-primary); }
+  .guest-form button { border-color:rgba(242,169,59,.45); color:var(--accent-amber); white-space:nowrap; }
+  .block p { font-size:12px; color:var(--text-muted); line-height:1.55; margin:0 0 8px; }
+  .future-note { font-size:11px; color:var(--text-muted); border-top:1px dashed var(--panel-border); padding-top:8px; margin:0; }
+  .log-panel-inner { display:flex; flex-direction:column; flex:1; min-height:170px; }
+  .log-head { padding:12px 14px; border-bottom:1px solid var(--panel-border); font-size:13px; font-weight:600; }
+  .log-list { list-style:none; margin:0; padding:8px 10px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:6px; max-height:260px; }
+  .log-list li { font-family:var(--font-mono); font-size:11.5px; line-height:1.5; padding:7px 9px; border-radius:6px;
+    background:rgba(255,255,255,0.03); border-left:2px solid var(--panel-border); color:var(--text-muted); }
+  .log-list li.alert { color:var(--accent-alert); border-left-color:var(--accent-alert); background:rgba(255,77,79,0.08); }
+  .log-list li.info { color:var(--text-primary); border-left-color:var(--accent-amber); }
+  .log-list li.working { color:var(--text-primary); border-left-color:var(--accent-info); }
+  .log-list li.authorized { color:var(--accent-safe); border-left-color:var(--accent-safe); background:rgba(55,214,122,0.08); }
+  .log-empty { color:var(--text-muted); font-size:12.5px; padding:6px 4px; }
+  .fallback-note { padding:12px 14px; margin-bottom:14px; border:1px solid rgba(255,77,79,0.4); background:rgba(255,77,79,0.08);
+    border-radius:8px; font-size:12.5px; color:var(--text-primary); line-height:1.6; }
+  .fallback-note code { background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:4px; }
+  footer.page-foot { margin-top:22px; font-size:12px; color:var(--text-muted); line-height:1.6; max-width:74ch; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page-head">
+    <p class="eyebrow">JANNEPIIPPAA OY — RIAS KONSEPTIDEMO · EFET <span class="live-badge" id="liveBadge">⏳ yhdistetään…</span></p>
+    <h1>RIAS – konseptidemo Enontekiön lentoasemalle</h1>
+    <p class="lede">
+      Demo näyttää, miten RIAS valvoo ajoneuvojen siirtymistä kiitotien suoja-alueelle
+      AFIS-lentoasemalla: <b>lupa AFIS:lta</b>, kun AFIS on palvelussa (AFIS johtaa ajoneuvoliikennettä kuten torni),
+      <b>ilmoittautuminen sovelluksessa</b>, kun AFIS ei ole palvelussa, sekä yleiskutsu ja poistumiskuittaus.
+      Näkymä on jaettu: kaikki linkin avanneet näkevät samat ajoneuvot ja tapahtumat.
+      Ajoneuvot ja sijainnit ovat simuloituja.
+    </p>
+  </header>
+
+  <div class="layout">
+
+    <section class="panel map-panel">
+      <div class="map-toolbar">
+        <span class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">Tila: normaali</span></span>
+        <div class="spacer"></div>
+        <button id="btnView" aria-pressed="false" title="Vaihda kaavion ja oikean lentoaseman ilmakuvan välillä">🛰 Ilmakuva</button>
+        <button id="btnReset">↺ Alkutilaan</button>
+      </div>
+
+      <div class="map-canvas-wrap" id="schemaWrap">
+        <svg id="airfield" viewBox="0 95 1000 365" xmlns="http://www.w3.org/2000/svg">
+
+          <rect x="120" y="135" width="760" height="100" fill="#ff4d4f" opacity="0.06" />
+          <rect x="120" y="135" width="760" height="100" fill="none" stroke="#ff4d4f" stroke-width="1.2" stroke-dasharray="3 4" opacity="0.55" />
+          <text x="126" y="129" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#ff8a8c">kiitotien suoja-alue (STRIP)</text>
+
+          <rect x="387" y="210" width="36" height="120" fill="#39485a" />
+
+          <rect x="320" y="330" width="180" height="110" fill="#1b2734" stroke="#324255" stroke-width="1"/>
+          <text x="332" y="345" font-family="Inter, sans-serif" font-size="10.5" fill="#8a97a8">ASEMATASO</text>
+          <rect x="335" y="395" width="42" height="34" fill="none" stroke="#4a5b6e" stroke-width="1"/>
+          <text x="352" y="416" font-family="JetBrains Mono, monospace" font-size="10" fill="#7c8ba0">1</text>
+          <rect x="389" y="395" width="42" height="34" fill="none" stroke="#4a5b6e" stroke-width="1"/>
+          <text x="406" y="416" font-family="JetBrains Mono, monospace" font-size="10" fill="#7c8ba0">2</text>
+          <rect x="443" y="395" width="42" height="34" fill="none" stroke="#4a5b6e" stroke-width="1"/>
+          <text x="460" y="416" font-family="JetBrains Mono, monospace" font-size="10" fill="#7c8ba0">3</text>
+
+          <line x1="381" y1="258" x2="429" y2="258" stroke="#f2a93b" stroke-width="3" stroke-dasharray="6 4" />
+          <text x="436" y="262" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#f2a93b">odotuspaikka</text>
+
+          <rect x="150" y="160" width="700" height="50" fill="#c9d1d9" />
+          <line x1="150" y1="185" x2="850" y2="185" stroke="#0d1117" stroke-width="2" stroke-dasharray="14 10" />
+          <text x="118" y="189" font-family="JetBrains Mono, monospace" font-size="13" font-weight="600" fill="#c9d1d9">03</text>
+          <text x="856" y="189" font-family="JetBrains Mono, monospace" font-size="13" font-weight="600" fill="#c9d1d9">21</text>
+
+          <line x1="579" y1="450" x2="579" y2="235" stroke="#5a6b7d" stroke-width="1.5" stroke-dasharray="3 4" opacity="0.6"/>
+          <text x="588" y="446" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#8a97a8">PORTTI (vierailijat, tagi)</text>
+
+        </svg>
+      </div>
+
+      <div class="map-canvas-wrap" id="photoWrap" hidden>
+        <svg id="airfieldPhoto" viewBox="0 0 1874 2335" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Enontekiön lentoaseman ilmakuva, johon on piirretty kiitotie ja suoja-alue">
+          <image href="efet-ilmakuva.jpg" x="0" y="0" width="1874" height="2335" preserveAspectRatio="none"/>
+          <polygon points="456.8,2125.0 1664.0,380.8 1417.3,210.0 210.1,1954.2" fill="#ff4d4f" fill-opacity="0.10" stroke="#ff4d4f" stroke-width="7" stroke-dasharray="26 16"/>
+          <polygon points="386.1,2003.1 1525.0,357.5 1488.0,331.9 349.1,1977.5" fill="#ffffff" fill-opacity="0.10" stroke="#ffffff" stroke-opacity="0.8" stroke-width="3"/>
+          <line x1="367.6" y1="1990.3" x2="1506.5" y2="344.7" stroke="#ffffff" stroke-opacity="0.55" stroke-width="3" stroke-dasharray="30 22"/>
+          <circle cx="978" cy="1520" r="52" fill="none" stroke="#ffffff" stroke-width="5"/>
+          <g font-family="JetBrains Mono, monospace" font-weight="600" fill="#ffffff" stroke="#000" stroke-width="7" paint-order="stroke" font-size="46">
+            <text x="248" y="2163" text-anchor="middle" >RWY 03</text>
+            <text x="1592" y="221" text-anchor="middle" >21</text>
+            <text x="760" y="1045" text-anchor="middle" fill="#ff8a8c">SUOJA-ALUE (STRIP)</text>
+            <text x="978" y="1620" text-anchor="middle">ASEMATASO</text>
+          </g>
+          <line x1="906.2" y1="1502.0" x2="931.2" y2="1465.8" stroke="#f2a93b" stroke-width="9" stroke-dasharray="16 10"/>
+          <line x1="1270.3" y1="1125.3" x2="1206.1" y2="1080.9" stroke="#c3ccd8" stroke-width="5" stroke-dasharray="10 12" stroke-opacity="0.8"/>
+          <g font-family="JetBrains Mono, monospace" font-weight="600" font-size="38" stroke="#000" stroke-width="6" paint-order="stroke">
+            <text x="1000.6" y="1333.9" fill="#f2a93b" text-anchor="start">odotuspaikka</text>
+            <text x="1304.8" y="1149.2" fill="#c3ccd8" text-anchor="middle">PORTTI (vierailijat, tagi)</text>
+          </g>
+          <rect x="18" y="2269" width="900" height="48" rx="8" fill="#000" fill-opacity="0.55"/>
+          <text x="34" y="2301" font-family="Inter, sans-serif" font-size="30" fill="#fff">Maanmittauslaitoksen ortokuva (10/2026), kuvausvuosi 2023. CC BY 4.0</text>
+        </svg>
+      </div>
+
+      <p class="map-caption" id="schemaCaption">
+        Kaavio on havainnollistava eikä mittakaavassa tarkka. Ympyrät = sovellusseuranta,
+        neliöt = tagiseuranta. Perustuu ais.fi eAIP:n EFET-tietoihin (01 OCT 2026 -painos).
+      </p>
+      <p class="map-caption" id="photoCaption" hidden>
+        Enontekiön lentoaseman (EFET) ilmakuva, johon on piirretty kiitotie ja suoja-alue (STRIP, 2121 x 300 m, laskettu eAIP:n kynnyskoordinaateista).
+        Ajoneuvot liikkuvat samalla tavalla kuin kaaviossa: asematasolta tai portilta odotuspaikalle ja ilmoittautumisen jälkeen suoja-alueelle.
+        Paikat ovat suuntaa antavia (demossa ei ole oikeaa paikannusta); varsinaisessa tuotteessa sijainti tulee ajoneuvon laitteesta.
+        Lähde: Maanmittauslaitoksen ortokuva (10/2026), kuvausvuosi 2023, CC BY 4.0.
+      </p>
+    </section>
+
+    <aside class="panel side-panel">
+
+      <div class="block">
+        <div class="block-head">Ajoneuvot seurannassa</div>
+        <div class="block-sub">Nimeä vapaasti — sama sääntö koskee kaikkia. Näkyy kaikille avoinna.</div>
+        <div id="vehicleList"></div>
+        <div class="guest-form">
+          <input type="text" id="guestNameInput" placeholder="esim. LVI-huolto, ABC-123">
+          <button id="btnAddGuest">🏷️ Myönnä tagi</button>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="block-head">Valvomonäkymä</div>
+        <div class="block-sub">Kuka katsoo näyttöä juuri nyt? (jaettu kaikille)</div>
+        <div class="role-toggle">
+          <button class="role-btn active" id="roleAtc">AFIS-lennontiedottaja<br>(AFIS palvelussa)</button>
+          <button class="role-btn" id="rolePelastus">Pelastus/kunnossapito<br>(AFIS ei palvelussa)</button>
+        </div>
+        <button id="btnRollCall" style="width:100%; margin-top:8px;">📻 Yleiskutsu: "kiitoalueella olevat ilmoittautukaa"</button>
+        <p class="rollcall-note">Käytä, kun AFIS aloittaa palvelun kesken toiminnan. Kutsuu kaikki alueella olevat ajoneuvot vastaamaan radiolla.</p>
+        <div id="pendingContainer"></div>
+      </div>
+
+      <div class="block">
+        <div class="block-head" style="margin-bottom:8px;">Tulevaa</div>
+        <p class="future-note">
+          Ilma-alusten seuranta ja niiden aiheuttamat hälytykset on suunniteltu
+          myöhempään versioon, ei osa tätä ensimmäistä MVP:tä. Poistuminen suoraan
+          toiselle luvanvaraiselle alueelle (esim. usean kiitotien kentällä) vaatii
+          oman logiikkansa — tässä demossa EFET:llä on vain yksi kiitotie.
+        </p>
+      </div>
+
+      <div class="log-panel-inner">
+        <div class="log-head">Tapahtumaloki (pysyvä, jaettu)</div>
+        <ul class="log-list" id="logList">
+          <li class="log-empty" id="logEmpty">Ei tapahtumia vielä.</li>
+        </ul>
+      </div>
+    </aside>
+
+  </div>
+
+  <footer class="page-foot">
+    Konseptidemo, ei operatiivinen järjestelmä. Demo ei ole yhteydessä oikeisiin seurantalaitteisiin
+    eikä lennonvarmistuksen järjestelmiin, ja ajoneuvot ovat keksittyjä. Tila ja tapahtumaloki jaetaan
+    kaikille, joilla on tämä linkki (demon tietokanta on tarkoituksella auki).
+    AFIS johtaa ajoneuvoliikennettä samoin kuin torni (AIP GEN 3.3). Sovelluksen lupa on valvomolle vapaaehtoinen
+    lisätyökalu eikä korvaa radiolla annettavaa lupaa. RIAS ei korvaa radioliikennettä, ajolupaa eikä lentopaikan omia
+    menettelyjä, vaan on niiden rinnalla toimiva lisäturvatyökalu. Jokainen ajoneuvo on itsenäinen toimija:
+    samat säännöt koskevat kaikkia yhtä aikaa liikkeellä olevia ajoneuvoja erikseen.
+    Lähteet: ais.fi eAIP, EF-AD 2 EFET ja GEN 3.3 (01 OCT 2026 ja 26 NOV 2026), AIC A 005/2026. Ilmakuva: Maanmittauslaitos, CC BY 4.0.
+  </footer>
+
+</div>
+
+<script>
+// ====== TÄYTÄ NÄMÄ OMASTA SUPABASE-PROJEKTISTASI (Project Settings -> API) ======
+const SUPABASE_URL = 'https://jqmlsxltlpffwcnlrqao.supabase.co';        // esim. https://xxxxx.supabase.co
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxbWxzeGx0bHBmZndjbmxycWFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3OTc2MTQsImV4cCI6MjEwNTM3MzYxNH0.8FLEn8XfBjot6elo40e4oNop1c63-t9QG9hw_TrZIn0';
+// =================================================================================
+
+(async function () {
+  var statusPill = document.getElementById('statusPill');
+  var statusText = document.getElementById('statusText');
+  var logList = document.getElementById('logList');
+  var btnReset = document.getElementById('btnReset');
+  var roleAtc = document.getElementById('roleAtc');
+  var rolePelastus = document.getElementById('rolePelastus');
+  var pendingContainer = document.getElementById('pendingContainer');
+  var vehicleListEl = document.getElementById('vehicleList');
+  var guestNameInput = document.getElementById('guestNameInput');
+  var btnAddGuest = document.getElementById('btnAddGuest');
+  var btnRollCall = document.getElementById('btnRollCall');
+  var liveBadge = document.getElementById('liveBadge');
+  var svg = document.getElementById('airfield');
+  var svgFoto = document.getElementById('airfieldPhoto');
+  var svgNS = 'http://www.w3.org/2000/svg';
+
+  if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_URL' || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY === 'YOUR_SUPABASE_ANON_KEY') {
+    var note = document.createElement('div');
+    note.className = 'fallback-note';
+    note.innerHTML = 'Supabase-asetuksia ei ole vielä täytetty. Avaa tämä tiedosto tekstieditorilla ja korvaa <code>SUPABASE_URL</code> ja <code>SUPABASE_ANON_KEY</code> omasta Supabase-projektistasi (Project Settings → API), sen jälkeen kun olet ensin ajanut <code>efet-supabase-schema.sql</code>-tiedoston Supabasen SQL Editorissa.';
+    document.querySelector('.wrap').insertBefore(note, document.querySelector('.layout'));
+    liveBadge.textContent = '⚠ asetukset puuttuvat';
+    liveBadge.style.color = '#ff4d4f';
+    return;
+  }
+
+  var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // AFIS-sanamuodot. Lähteet: kutsutunnus ja taajuus eAIP AD 2.18,
+  // AFIS johtaa ajoneuvoliikennettä kuten torni (GEN 3.3, kohta 3.1), AFIS-ajan ulkopuolella ajoneuvot kuuntelevat
+  // ATS-taajuutta mutta eivät tyypillisesti lähetä (AIC A 005/2026). Ei keksittyjä radiorepliikkejä.
+  var T = {
+    afisKutsu: 'Enontekiön tiedotus',
+    afisTaajuus: '122.450 MHz',
+    afisKortti: function (v, seuranta) { return v.label + ' (' + seuranta + ') pyytää radiolla lupaa siirtyä kiitotien suoja-alueelle (📻 ' + T.afisKutsu + ', ' + T.afisTaajuus + '). AFIS johtaa ajoneuvoliikennettä samoin kuin torni. Voit myöntää luvan myös sovelluksesta tai jättää sen huomiotta.'; },
+    afisLupa: function (v) { return 'AFIS (' + T.afisKutsu + ') antoi luvan: ' + v.label + '.'; },
+    afisLuvalla: function (v) { return v.label + ' siirtyi kiitotien suoja-alueelle luvan mukaisesti.'; },
+    ilmanLupaa: function (v) { return 'HÄLYTYS: ' + v.label + ' siirtyi kiitotien suoja-alueelle ilman lupaa (RWY 03/21).'; },
+    suljettuKortti: function (v) { return '📱 ' + v.label + ' ilmoittautuu RIAS-sovelluksessa ja kuuntelee AFIS-taajuutta ' + T.afisTaajuus + '. AFIS ei ole palvelussa: lupaa ei anna kukaan, vaan ajoneuvo- ja ajolupa riittää, kunhan ilmoittautuminen tehdään.'; },
+    suljettuIlmoittautui: function (v) { return v.label + ' ilmoittautui sovelluksessa (AFIS ei palvelussa) ja siirtyi kiitoalueelle. Kuuntelee taajuutta ' + T.afisTaajuus + '. Ei poikkeamaa.'; },
+    yleiskutsu: 'AFIS (Enontekiön tiedotus): "Kiitoalueella olevat ilmoittautukaa." (yleiskutsu VHF-taajuudella)',
+    yleiskutsuKysymys: 'Mitä tapahtui, kun AFIS kutsui kiitoalueella olevat ilmoittautumaan?'
+  };
+
+  var state = { role: 'afis', vehicles: {} };
+  var rendered = {};
+  var inFlight = {};
+
+  function posFor(v) {
+    if (v.phase === 'apron') { return { x: v.start_x, y: v.start_y }; }
+    if (v.route_mode === 'gate') { return v.phase === 'hold' ? { x: v.lane_x, y: 250 } : { x: v.lane_x, y: 222 }; }
+    return v.phase === 'hold' ? { x: v.lane_x, y: 258 } : { x: v.lane_x, y: 185 };
+  }
+  // Ilmakuvan paikat: kiitotien suuntainen koordinaatisto (1 px = 1 m), origo kynnys 03,
+  // s = matka kiitotietä pitkin, e = etäisyys keskilinjasta kaakkoon. Arvot on laskettu eAIP:n kynnyskoordinaateista.
+  // Odotuspaikka s 730 / e 165 (rullaustie asematasolta), portti s 1225 / e 172 (huoltotie kaakosta), ADC-kartan mukaan.
+  var FOTO = { ax: 367.6, ay: 1990.3, ux: 0.5691, uy: -0.8223, nx: 0.8223, ny: 0.5691, skaala: 2.3 };
+  function fotoXY(s, e) { return { x: FOTO.ax + s * FOTO.ux + e * FOTO.nx, y: FOTO.ay + s * FOTO.uy + e * FOTO.ny }; }
+  function posForFoto(v) {
+    if (v.route_mode === 'gate') {
+      var sg = 1225 + (v.lane_x - 579) * 2.5;
+      return fotoXY(sg, v.phase === 'apron' ? 250 : v.phase === 'hold' ? 172 : 95);
+    }
+    var st = 730 + (v.lane_x - 405) * 2.5;
+    if (v.phase === 'apron') { return fotoXY(740 + (v.start_x - 405) * 1.5, 215 + (v.start_y - 376) * 5); }
+    return fotoXY(st, v.phase === 'hold' ? 165 : 80);
+  }
+  function fillFor(visual) {
+    return visual === 'alert' ? '#ff4d4f' : visual === 'pending' ? '#f2a93b' : visual === 'working' ? '#4ea1ff' : '#37d67a';
+  }
+  function svgEl(tag, attrs) {
+    var e = document.createElementNS(svgNS, tag);
+    for (var k in attrs) { e.setAttribute(k, attrs[k]); }
+    return e;
+  }
+  function makeBtn(label, cls, handler) {
+    var b = document.createElement('button');
+    b.textContent = label; if (cls) { b.className = cls; }
+    b.addEventListener('click', handler);
+    return b;
+  }
+
+  async function logAdd(text, kind) {
+    try { await supabase.from('efet_log').insert({ text: text, kind: kind || 'info' }); } catch (e) { console.error(e); }
+  }
+
+  function fotoTransform(p) { return 'translate(' + p.x.toFixed(1) + ',' + p.y.toFixed(1) + ') scale(' + FOTO.skaala + ')'; }
+  // Ajoneuvon merkki: sama muoto molemmissa näkymissä (ympyrä = sovellus, neliö = tagi). Ilmakuvassa tekstille reunaviiva.
+  function makeIcon(id, v, foto, transform) {
+    var groupEl = svgEl('g', { id: id, class: foto ? 'veh-icon-foto' : 'veh-icon', transform: transform });
+    var dotEl, ringEl;
+    if (v.tracking === 'tag') {
+      dotEl = svgEl('rect', { x: -9, y: -9, width: 18, height: 18, rx: 3, fill: '#37d67a', stroke: '#0d1117', 'stroke-width': 1.5 });
+      ringEl = svgEl('rect', { x: -15, y: -15, width: 30, height: 30, rx: 5, fill: 'none', stroke: '#ff4d4f', 'stroke-width': 2, opacity: 0 });
+    } else {
+      dotEl = svgEl('circle', { r: 10, fill: '#37d67a', stroke: '#0d1117', 'stroke-width': 1.5 });
+      ringEl = svgEl('circle', { r: 16, fill: 'none', stroke: '#ff4d4f', 'stroke-width': 2, opacity: 0 });
+    }
+    var label = svgEl('text', { x: 0, y: -15, 'text-anchor': 'middle', 'font-family': 'JetBrains Mono, monospace', 'font-size': 9, fill: '#e7edf5', 'font-weight': 600 });
+    if (foto) { label.setAttribute('stroke', '#000'); label.setAttribute('stroke-width', 2); label.setAttribute('paint-order', 'stroke'); }
+    label.textContent = id.indexOf('v1') === 0 ? '1' : id.indexOf('v2') === 0 ? '2' : '';
+    groupEl.appendChild(dotEl); groupEl.appendChild(ringEl); groupEl.appendChild(label);
+    return { groupEl: groupEl, dotEl: dotEl, ringEl: ringEl };
+  }
+
+  function ensureRendered(id, v) {
+    if (rendered[id]) { return rendered[id]; }
+    var p = { x: v.start_x, y: v.start_y };
+    var kaavioIkoni = makeIcon(id, v, false, 'translate(' + p.x + ',' + p.y + ')');
+    var pf = posForFoto(v);
+    var fotoIkoni = makeIcon(id + '-foto', v, true, fotoTransform(pf));
+    var groupEl = kaavioIkoni.groupEl, dotEl = kaavioIkoni.dotEl, ringEl = kaavioIkoni.ringEl;
+    svg.appendChild(groupEl);
+    svgFoto.appendChild(fotoIkoni.groupEl);
+
+    var row = document.createElement('div');
+    row.className = 'vehicle-row';
+    var nameInput = document.createElement('input');
+    nameInput.type = 'text'; nameInput.className = 'vname-input'; nameInput.value = v.label;
+    nameInput.addEventListener('change', function () {
+      supabase.from('efet_vehicles').update({ label: nameInput.value || v.label }).eq('id', id).then(refetchVehicles);
+    });
+    row.appendChild(nameInput);
+    var trackBadge = document.createElement('span');
+    trackBadge.className = 'track-badge';
+    trackBadge.textContent = v.tracking === 'tag' ? '🏷️ tagi' : '📱 sovellus';
+    row.appendChild(trackBadge);
+    var statusBadge = document.createElement('span');
+    statusBadge.className = 'status-badge';
+    row.appendChild(statusBadge);
+    var rowBtn = document.createElement('button');
+    rowBtn.className = 'row-start-btn';
+    rowBtn.addEventListener('click', function () {
+      var cur = state.vehicles[id];
+      if (!cur) { return; }
+      if (cur.phase === 'apron') { doStart(id); }
+      else if (cur.phase === 'strip') { doExit(id); }
+    });
+    row.appendChild(rowBtn);
+    vehicleListEl.appendChild(row);
+
+    rendered[id] = { groupEl: groupEl, dotEl: dotEl, ringEl: ringEl, fotoGroupEl: fotoIkoni.groupEl, fotoDotEl: fotoIkoni.dotEl, fotoRingEl: fotoIkoni.ringEl, statusBadgeEl: statusBadge, rowBtn: rowBtn, nameInput: nameInput };
+    return rendered[id];
+  }
+
+  function render() {
+    // Poista näkymät ajoneuvoilta, jotka on poistettu tietokannasta (esim. nollauksessa vierailijat)
+    Object.keys(rendered).forEach(function (id) {
+      if (state.vehicles[id]) { return; }
+      var old = rendered[id];
+      if (old.groupEl.parentNode) { old.groupEl.parentNode.removeChild(old.groupEl); }
+      if (old.fotoGroupEl.parentNode) { old.fotoGroupEl.parentNode.removeChild(old.fotoGroupEl); }
+      if (old.rowBtn.parentNode && old.rowBtn.parentNode.parentNode) { old.rowBtn.parentNode.parentNode.removeChild(old.rowBtn.parentNode); }
+      delete rendered[id];
+    });
+    Object.keys(state.vehicles).forEach(function (id) {
+      var v = state.vehicles[id];
+      var r = ensureRendered(id, v);
+      if (document.activeElement !== r.nameInput) { r.nameInput.value = v.label; }
+      var p = posFor(v);
+      r.groupEl.setAttribute('transform', 'translate(' + p.x + ',' + p.y + ')');
+      r.fotoGroupEl.setAttribute('transform', fotoTransform(posForFoto(v)));
+      r.dotEl.setAttribute('fill', fillFor(v.visual));
+      r.fotoDotEl.setAttribute('fill', fillFor(v.visual));
+      r.ringEl.setAttribute('opacity', v.visual === 'alert' ? '1' : '0');
+      r.fotoRingEl.setAttribute('opacity', v.visual === 'alert' ? '1' : '0');
+      r.statusBadgeEl.className = 'status-badge' + (v.visual !== 'normal' ? ' ' + v.visual : '');
+      r.statusBadgeEl.textContent = v.visual === 'alert' ? 'HÄLYTYS' : v.visual === 'pending' ? 'odottaa' : v.visual === 'working' ? 'alueella' : (v.phase === 'strip' ? 'alueella' : 'normaali');
+      r.rowBtn.textContent = v.phase === 'strip' ? '⏏' : '▶';
+      r.rowBtn.disabled = v.phase === 'hold' || v.roll_call_pending || !!inFlight[id];
+    });
+
+    roleAtc.classList.toggle('active', state.role === 'afis');
+    rolePelastus.classList.toggle('active', state.role !== 'afis');
+    btnRollCall.disabled = state.role !== 'afis';
+
+    var vals = Object.keys(state.vehicles).map(function (id) { return state.vehicles[id]; });
+    var anyAlert = vals.some(function (v) { return v.visual === 'alert'; });
+    var anyPending = vals.some(function (v) { return v.phase === 'hold'; });
+    var anyWorking = vals.some(function (v) { return v.phase === 'strip'; });
+    statusPill.classList.remove('pending', 'working', 'alert');
+    if (anyAlert) { statusPill.classList.add('alert'); statusText.textContent = 'HÄLYTYS – kiitotiepoikkeama'; }
+    else if (anyPending) { statusPill.classList.add('pending'); statusText.textContent = 'Odottaa lupaa / ilmoittautumista'; }
+    else if (anyWorking) { statusPill.classList.add('working'); statusText.textContent = 'Ajoneuvo(t) alueella'; }
+    else { statusText.textContent = 'Tila: normaali'; }
+
+    renderCards();
+  }
+
+  function renderCards() {
+    pendingContainer.innerHTML = '';
+    Object.keys(state.vehicles).forEach(function (id) {
+      if (inFlight[id]) { return; }
+      var v = state.vehicles[id];
+      if (v.phase === 'hold') { pendingContainer.appendChild(buildHoldCard(id, v)); }
+      else if (v.roll_call_pending) { pendingContainer.appendChild(buildRollCallCard(id, v)); }
+    });
+  }
+
+  function buildHoldCard(id, v) {
+    var card = document.createElement('div'); card.className = 'pending-card';
+    var title = document.createElement('div'); title.className = 'pending-title'; title.textContent = v.label + ' odottaa';
+    var body = document.createElement('div');
+    var actions = document.createElement('div'); actions.className = 'pending-actions';
+    if (state.role === 'afis') {
+      body.textContent = T.afisKortti(v, v.tracking === 'tag' ? 'tagi' : 'sovellus');
+      actions.appendChild(makeBtn('✓ Anna lupa (sovellus)', 'btn-grant', function () { doGrant(id); }));
+      actions.appendChild(makeBtn('→ Jatkaa ilman lupaa', 'btn-noauth', function () { doProceedControlled(id); }));
+      actions.appendChild(makeBtn('← Peruuttaa ja palaa', 'btn-return', function () { doReturn(id); }));
+    } else {
+      body.textContent = T.suljettuKortti(v);
+      actions.appendChild(makeBtn('📱 Ilmoittautuu sovelluksessa ja jatkaa', 'btn-noauth', function () { doProceedAnnounced(id, T.suljettuIlmoittautui(v)); }));
+      actions.appendChild(makeBtn('🚫 Ajaa ilmoittautumatta', 'btn-unannounced', function () { doProceedUnannounced(id); }));
+      actions.appendChild(makeBtn('← Peruuttaa ja palaa', 'btn-return', function () { doReturn(id); }));
+    }
+    card.appendChild(title); card.appendChild(body); card.appendChild(actions);
+    return card;
+  }
+
+  function buildRollCallCard(id, v) {
+    var card = document.createElement('div'); card.className = 'pending-card';
+    var title = document.createElement('div'); title.className = 'pending-title'; title.textContent = v.label + ' ei vastannut heti yleiskutsuun';
+    var body = document.createElement('div'); body.textContent = T.yleiskutsuKysymys;
+    var actions = document.createElement('div'); actions.className = 'pending-actions';
+    actions.appendChild(makeBtn('✓ Vastasi viiveellä — tilanne selvisi', 'btn-grant', function () {
+      supabase.from('efet_vehicles').update({ announced: true, visual: 'working', roll_call_pending: false }).eq('id', id).then(refetchVehicles);
+      logAdd(v.label + ' vastasi viiveellä yleiskutsuun, tilanne selvisi (esim. radio oli mykistettynä). Ei kiitotiepoikkeamaa.', 'authorized');
+    }));
+    actions.appendChild(makeBtn('✗ Ei vastausta — poikkeama vahvistuu', 'btn-unannounced', function () {
+      supabase.from('efet_vehicles').update({ roll_call_pending: false }).eq('id', id).then(refetchVehicles);
+      logAdd('POIKKEAMA VAHVISTETTU: ' + v.label + ' ei vastannut yleiskutsuun. Vaatii välitöntä toimenpidettä.', 'alert');
+    }));
+    card.appendChild(title); card.appendChild(body); card.appendChild(actions);
+    return card;
+  }
+
+  function renderLog(rows) {
+    logList.innerHTML = '';
+    if (!rows || rows.length === 0) {
+      var li0 = document.createElement('li'); li0.className = 'log-empty'; li0.textContent = 'Ei tapahtumia vielä.'; logList.appendChild(li0); return;
+    }
+    rows.slice().reverse().forEach(function (data) {
+      var li = document.createElement('li');
+      if (data.kind) { li.className = data.kind; }
+      var t = new Date(data.ts).toLocaleTimeString('fi-FI');
+      li.textContent = '[' + t + '] ' + data.text;
+      logList.appendChild(li);
+    });
+    logList.scrollTop = logList.scrollHeight;
+  }
+
+  function doStart(id) {
+    var v = state.vehicles[id]; if (!v || v.phase !== 'apron' || inFlight[id]) { return; }
+    inFlight[id] = true; render();
+    logAdd(v.label + ' lähti liikkeelle kohti odotuspaikkaa.', 'info');
+    setTimeout(function () {
+      delete inFlight[id];
+      supabase.from('efet_vehicles').update({ phase: 'hold', announced: false, visual: 'pending', roll_call_pending: false }).eq('id', id).then(refetchVehicles);
+      logAdd(v.label + ' saapui odotuspaikalle.', 'info');
+    }, 850);
+  }
+  function doGrant(id) {
+    var v = state.vehicles[id]; if (!v || inFlight[id]) { return; }
+    inFlight[id] = true; render();
+    logAdd(T.afisLupa(v), 'info');
+    setTimeout(function () {
+      delete inFlight[id];
+      supabase.from('efet_vehicles').update({ phase: 'strip', announced: true, visual: 'normal' }).eq('id', id).then(refetchVehicles);
+      logAdd(T.afisLuvalla(v), 'authorized');
+    }, 800);
+  }
+  function doProceedControlled(id) {
+    var v = state.vehicles[id]; if (!v || inFlight[id]) { return; }
+    inFlight[id] = true; render();
+    logAdd(v.label + ' jatkaa matkaa omalla päätöksellä ilman lupaa.', 'info');
+    setTimeout(function () {
+      delete inFlight[id];
+      supabase.from('efet_vehicles').update({ phase: 'strip', announced: false, visual: 'alert' }).eq('id', id).then(refetchVehicles);
+      logAdd(T.ilmanLupaa(v), 'alert');
+    }, 800);
+  }
+  function doProceedAnnounced(id, lokiteksti) {
+    var v = state.vehicles[id]; if (!v || inFlight[id]) { return; }
+    inFlight[id] = true; render();
+    logAdd(lokiteksti, 'working');
+    setTimeout(function () {
+      delete inFlight[id];
+      supabase.from('efet_vehicles').update({ phase: 'strip', announced: true, visual: 'working' }).eq('id', id).then(refetchVehicles);
+    }, 800);
+  }
+  function doProceedUnannounced(id) {
+    var v = state.vehicles[id]; if (!v || inFlight[id]) { return; }
+    inFlight[id] = true; render();
+    setTimeout(function () {
+      delete inFlight[id];
+      supabase.from('efet_vehicles').update({ phase: 'strip', announced: false, visual: 'alert' }).eq('id', id).then(refetchVehicles);
+      logAdd('POIKKEAMA: ' + v.label + ' on kiitoalueella ilman ilmoittautumista (ei sovellusilmoittautumista eikä radiokutsua).', 'alert');
+    }, 800);
+  }
+  function doReturn(id) {
+    var v = state.vehicles[id]; if (!v || inFlight[id]) { return; }
+    inFlight[id] = true; render();
+    logAdd(v.label + ' peruutti ja palasi asematasolle. Aluetta ei ylitetty.', 'info');
+    setTimeout(function () {
+      delete inFlight[id];
+      supabase.from('efet_vehicles').update({ phase: 'apron', visual: 'normal', announced: false }).eq('id', id).then(refetchVehicles);
+    }, 800);
+  }
+  function doExit(id) {
+    var v = state.vehicles[id]; if (!v || v.phase !== 'strip' || inFlight[id]) { return; }
+    inFlight[id] = true; render();
+    setTimeout(function () {
+      delete inFlight[id];
+      supabase.from('efet_vehicles').update({ phase: 'apron', visual: 'normal', announced: false, roll_call_pending: false }).eq('id', id).then(refetchVehicles);
+      logAdd(v.label + ' poistui kiitoalueelta.', 'authorized');
+    }, 800);
+  }
+  async function doRollCall() {
+    var ids = Object.keys(state.vehicles).filter(function (id) { return state.vehicles[id].phase === 'strip'; });
+    await logAdd(T.yleiskutsu, 'info');
+    if (ids.length === 0) { await logAdd('Ei ajoneuvoja kiitoalueella juuri nyt.', 'info'); return; }
+    for (var i = 0; i < ids.length; i++) {
+      var id = ids[i]; var v = state.vehicles[id];
+      if (v.announced) {
+        await logAdd(v.label + ' vastasi yleiskutsuun heti: tilanne OK, jatkaa työtä.', 'authorized');
+      } else {
+        await supabase.from('efet_vehicles').update({ roll_call_pending: true }).eq('id', id);
+      }
+    }
+    refetchVehicles();
+  }
+
+  roleAtc.addEventListener('click', function () { supabase.from('efet_world_state').update({ role: 'afis' }).eq('id', 1).then(refetchWorld); });
+  rolePelastus.addEventListener('click', function () { supabase.from('efet_world_state').update({ role: 'pelastus' }).eq('id', 1).then(refetchWorld); });
+  btnRollCall.addEventListener('click', function () { doRollCall(); });
+
+  btnAddGuest.addEventListener('click', async function () {
+    var name = guestNameInput.value.trim();
+    if (!name) { return; }
+    var guestCount = Object.keys(state.vehicles).filter(function (id) { return state.vehicles[id].route_mode === 'gate'; }).length;
+    var laneX = 579 + guestCount * 22;
+    var id = 'guest_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    await supabase.from('efet_vehicles').insert({ id: id, label: name, tracking: 'tag', route_mode: 'gate', lane_x: laneX, start_x: laneX, start_y: 440, phase: 'apron' });
+    await logAdd('Uusi ajoneuvolupa ja tagi myönnetty: ' + name + '.', 'info');
+    guestNameInput.value = '';
+    refetchVehicles();
+  });
+  guestNameInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { btnAddGuest.click(); } });
+
+  btnReset.addEventListener('click', async function () {
+    inFlight = {};
+    await supabase.from('efet_vehicles').update({ phase: 'apron', visual: 'normal', announced: false, roll_call_pending: false }).eq('id', 'v1');
+    await supabase.from('efet_vehicles').update({ phase: 'apron', visual: 'normal', announced: false, roll_call_pending: false }).eq('id', 'v2');
+    await supabase.from('efet_vehicles').delete().not('id', 'in', '("v1","v2")');
+    await logAdd('Näkymä palautettu alkutilaan (ajoneuvot).', 'info');
+    refetchVehicles();
+  });
+
+  async function refetchVehicles() {
+    var res = await supabase.from('efet_vehicles').select('*').order('id');
+    if (res.error) { console.error(res.error); return; }
+    var map = {};
+    res.data.forEach(function (row) { map[row.id] = row; });
+    state.vehicles = map;
+    render();
+  }
+  async function refetchWorld() {
+    var res = await supabase.from('efet_world_state').select('*').eq('id', 1).single();
+    if (res.error) { console.error(res.error); return; }
+    state.role = res.data.role || 'afis';
+    render();
+  }
+  async function refetchLog() {
+    var res = await supabase.from('efet_log').select('*').order('ts', { ascending: false }).limit(40);
+    if (res.error) { console.error(res.error); return; }
+    renderLog(res.data);
+  }
+
+  async function init() {
+    try {
+      await refetchWorld();
+      await refetchVehicles();
+      await refetchLog();
+      liveBadge.textContent = '● jaettu näkymä käytössä';
+
+      supabase.channel('rias-efet-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'efet_vehicles' }, refetchVehicles)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'efet_world_state' }, refetchWorld)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'efet_log' }, refetchLog)
+        .subscribe();
+    } catch (e) {
+      console.error(e);
+      var note = document.createElement('div');
+      note.className = 'fallback-note';
+      note.textContent = 'Yhteys Supabaseen epäonnistui. Tarkista SUPABASE_URL/SUPABASE_ANON_KEY ja että efet-supabase-schema.sql on ajettu.';
+      document.querySelector('.wrap').insertBefore(note, document.querySelector('.layout'));
+      liveBadge.textContent = '⚠ ei yhteyttä';
+      liveBadge.style.color = '#ff4d4f';
+    }
+  }
+
+  init();
+})();
+</script>
+<script>
+(function () {
+  var btn = document.getElementById('btnView');
+  var schema = document.getElementById('schemaWrap'), foto = document.getElementById('photoWrap');
+  var schemaCap = document.getElementById('schemaCaption'), fotoCap = document.getElementById('photoCaption');
+  if (!btn || !schema || !foto) { return; }
+  btn.addEventListener('click', function () {
+    var naytaFoto = foto.hidden;
+    foto.hidden = !naytaFoto; schema.hidden = naytaFoto;
+    fotoCap.hidden = !naytaFoto; schemaCap.hidden = naytaFoto;
+    btn.setAttribute('aria-pressed', naytaFoto ? 'true' : 'false');
+    btn.textContent = naytaFoto ? '◫ Kaavio' : '🛰 Ilmakuva';
+  });
+})();
+</script>
+</body>
+</html>

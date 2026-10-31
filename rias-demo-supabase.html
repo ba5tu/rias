@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIAS – live-konseptidemo (Supabase)</title>
+<title>RIAS – konseptidemo EFLP (Lappeenranta)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -106,14 +106,13 @@
 <div class="wrap">
 
   <header class="page-head">
-    <p class="eyebrow">JANNEPIIPPAA OY — RIAS KONSEPTIDEMO (Supabase) <span class="live-badge" id="liveBadge">⏳ yhdistetään…</span></p>
-    <h1>RIAS – julkisesti jaettava live-demo</h1>
+    <p class="eyebrow">JANNEPIIPPAA OY — RIAS KONSEPTIDEMO · EFLP <span class="live-badge" id="liveBadge">⏳ yhdistetään…</span></p>
+    <h1>RIAS – konseptidemo Lappeenrannan lentoasemalle</h1>
     <p class="lede">
-      Tämä versio käyttää omaa Supabase-tietokantaasi eikä Claude-tiliä, joten linkin
-      voi jakaa kenelle tahansa (kun tämä tiedosto on julkaistu esim. GitHub Pagesissa) —
-      ei kirjautumista, ei organisaatiorajoitusta. Sama sääntölogiikka kuin aiemmissa
-      versioissa: <b>lupavalvonta</b> torni auki -tilassa, itsenäinen radioilmoittautuminen
-      torni kiinni -tilassa, yleiskutsu ja poistumiskuittaus.
+      Demo näyttää, miten RIAS valvoo ajoneuvojen siirtymistä kiitotien suoja-alueelle:
+      <b>lupa tornilta</b>, kun torni on auki, <b>ilmoittautuminen sovelluksessa</b>, kun torni on kiinni,
+      sekä yleiskutsu ja poistumiskuittaus. Näkymä on jaettu: kaikki linkin avanneet näkevät samat
+      ajoneuvot ja tapahtumat. Ajoneuvot ja sijainnit ovat simuloituja.
     </p>
   </header>
 
@@ -247,16 +246,15 @@
   </div>
 
   <footer class="page-foot">
-    Konseptidemo eikä yhteydessä oikeisiin seurantalaitteisiin tai ATS-järjestelmiin.
-    Tila ja tapahtumaloki jaetaan Supabase-tietokannan kautta kaikille, joilla on tämä
-    linkki — anon-avaimella auki, joten ennen laajempaa käyttöä kannattaa lisätä
-    Supabase Auth ja tiukempi RLS. Torni kiinni -tilassa ajoneuvo toimii ajoneuvo- ja
-    ajoluvan varassa ja ilmoittaa liikkeestään VHF-taajuudella (EU 139/2014,
-    valvomattoman lentopaikan menettely) — tämä ei ole kiitotiepoikkeama. Jokainen
+    Konseptidemo, ei operatiivinen järjestelmä. Demo ei ole yhteydessä oikeisiin seurantalaitteisiin
+    eikä lennonvarmistuksen järjestelmiin, ja ajoneuvot ovat keksittyjä. Tila ja tapahtumaloki jaetaan
+    kaikille, joilla on tämä linkki (demon tietokanta on tarkoituksella auki). Torni kiinni -tilassa ajoneuvo toimii ajoneuvo- ja
+    ajoluvan varassa, ilmoittautuu sovelluksessa ja kuuntelee tornin taajuutta 120.200 MHz
+    (ATS-ajan ulkopuolella ajoneuvot eivät tyypillisesti lähetä radiossa, AIC A 005/2026) — tämä ei ole kiitotiepoikkeama. Jokainen
     ajoneuvo on itsenäinen toimija: samat säännöt koskevat kaikkia yhtä aikaa liikkeellä
     olevia ajoneuvoja erikseen. Digitaalinen lupa-toiminto torni auki -tilassa on
     valvomolle vapaaehtoinen lisätyökalu — se ei korvaa RTF-radiolla annettavaa lupaa.
-    Lähde: ais.fi eAIP, EF-AD 2 EFLP.
+    Lähteet: ais.fi eAIP, EF-AD 2 EFLP (kutsutunnus ja taajuus AD 2.18), AIC A 005/2026.
   </footer>
 
 </div>
@@ -456,13 +454,13 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     var body = document.createElement('div');
     var actions = document.createElement('div'); actions.className = 'pending-actions';
     if (state.role === 'atc') {
-      body.textContent = v.label + ' (' + (v.tracking === 'tag' ? 'tagi' : 'sovellus') + ') pyytää lupaa siirtyä kiitotien suoja-alueelle. Voit myöntää luvan sovelluksesta tai jättää sen huomiotta.';
+      body.textContent = v.label + ' (' + (v.tracking === 'tag' ? 'tagi' : 'sovellus') + ') pyytää radiolla lupaa siirtyä kiitotien suoja-alueelle (📻 Lappeenrannan torni, 120.200 MHz). Voit myöntää luvan myös sovelluksesta tai jättää sen huomiotta.';
       actions.appendChild(makeBtn('✓ Anna lupa (sovellus)', 'btn-grant', function () { doGrant(id); }));
       actions.appendChild(makeBtn('→ Jatkaa ilman lupaa', 'btn-noauth', function () { doProceedControlled(id); }));
       actions.appendChild(makeBtn('← Peruuttaa ja palaa', 'btn-return', function () { doReturn(id); }));
     } else {
-      body.innerHTML = '📻 "Lappeenrannan liikenne, ' + v.label.toLowerCase() + ' ajaa kiitoalueelle." Torni kiinni — ajoneuvo- ja ajolupa riittää, erillistä lupaa ei myönnä kukaan, kunhan ilmoittautuminen tehdään.';
-      actions.appendChild(makeBtn('📻 Ilmoittautuu ja jatkaa', 'btn-noauth', function () { doProceedUncontrolled(id); }));
+      body.textContent = '📱 ' + v.label + ' ilmoittautuu RIAS-sovelluksessa ja kuuntelee tornin taajuutta 120.200 MHz. Torni kiinni: lupaa ei anna kukaan, vaan ajoneuvo- ja ajolupa riittää, kunhan ilmoittautuminen tehdään.';
+      actions.appendChild(makeBtn('📱 Ilmoittautuu sovelluksessa ja jatkaa', 'btn-noauth', function () { doProceedUncontrolled(id); }));
       actions.appendChild(makeBtn('🚫 Ajaa ilmoittautumatta', 'btn-unannounced', function () { doProceedUnannounced(id); }));
       actions.appendChild(makeBtn('← Peruuttaa ja palaa', 'btn-return', function () { doReturn(id); }));
     }
@@ -535,7 +533,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
   function doProceedUncontrolled(id) {
     var v = state.vehicles[id]; if (!v || inFlight[id]) { return; }
     inFlight[id] = true; render();
-    logAdd(v.label + ' ilmoitti radiolla siirtymisestä alueelle (ajoneuvo- ja ajolupa, ei ATS:ää). Ei poikkeamaa.', 'working');
+    logAdd(v.label + ' ilmoittautui sovelluksessa (torni kiinni) ja siirtyi alueelle. Kuuntelee taajuutta 120.200 MHz. Ei poikkeamaa.', 'working');
     setTimeout(function () {
       delete inFlight[id];
       supabase.from('vehicles').update({ phase: 'strip', announced: true, visual: 'working' }).eq('id', id).then(refetchVehicles);
@@ -547,7 +545,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     setTimeout(function () {
       delete inFlight[id];
       supabase.from('vehicles').update({ phase: 'strip', announced: false, visual: 'alert' }).eq('id', id).then(refetchVehicles);
-      logAdd('POIKKEAMA: ' + v.label + ' on kiitoalueella ilman ilmoittautumista (ei radiokutsua eikä sovellusvahvistusta).', 'alert');
+      logAdd('POIKKEAMA: ' + v.label + ' on kiitoalueella ilman ilmoittautumista (ei sovellusilmoittautumista eikä radiokutsua).', 'alert');
     }, 800);
   }
   function doReturn(id) {
@@ -570,7 +568,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
   }
   async function doRollCall() {
     var ids = Object.keys(state.vehicles).filter(function (id) { return state.vehicles[id].phase === 'strip'; });
-    await logAdd('Lennonjohto: "Kiitoalueella olevat ilmoittautukaa." (yleiskutsu VHF-taajuudella)', 'info');
+    await logAdd('Lappeenrannan torni: "Kiitoalueella olevat ilmoittautukaa." (yleiskutsu VHF-taajuudella)', 'info');
     if (ids.length === 0) { await logAdd('Ei ajoneuvoja kiitoalueella juuri nyt.', 'info'); return; }
     for (var i = 0; i < ids.length; i++) {
       var id = ids[i]; var v = state.vehicles[id];
