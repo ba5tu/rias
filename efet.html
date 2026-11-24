@@ -86,6 +86,11 @@
   .guest-form button { border-color:rgba(242,169,59,.45); color:var(--accent-amber); white-space:nowrap; }
   .block p { font-size:12px; color:var(--text-muted); line-height:1.55; margin:0 0 8px; }
   .future-note { font-size:11px; color:var(--text-muted); border-top:1px dashed var(--panel-border); padding-top:8px; margin:0; }
+  .future-list { border-top:none; padding:4px 0 0 16px; line-height:1.5; }
+  .future-list li { margin-bottom:3px; }
+  .alert-card { border-color:rgba(255,77,79,0.55); background:rgba(255,77,79,0.08); }
+  .alert-card .pending-title { color:var(--accent-alert); }
+  .sim-label { font-size:10.5px; color:var(--text-muted); margin-top:8px; font-family:var(--font-mono); }
   .log-panel-inner { display:flex; flex-direction:column; flex:1; min-height:170px; }
   .log-head { padding:12px 14px; border-bottom:1px solid var(--panel-border); font-size:13px; font-weight:600; }
   .log-list { list-style:none; margin:0; padding:8px 10px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:6px; max-height:260px; }
@@ -109,9 +114,10 @@
     <p class="eyebrow">JANNEPIIPPAA OY — RIAS KONSEPTIDEMO · EFET <span class="live-badge" id="liveBadge">⏳ yhdistetään…</span></p>
     <h1>RIAS – konseptidemo Enontekiön lentoasemalle</h1>
     <p class="lede">
-      Demo näyttää, miten RIAS valvoo ajoneuvojen siirtymistä kiitotien suoja-alueelle
-      AFIS-lentoasemalla: <b>lupa AFIS:lta</b>, kun AFIS on palvelussa (AFIS johtaa ajoneuvoliikennettä kuten torni),
-      <b>ilmoittautuminen sovelluksessa</b>, kun AFIS ei ole palvelussa, sekä yleiskutsu ja poistumiskuittaus.
+      Demo näyttää, miten RIAS auttaa Enontekiön lentoaseman pelastusta ja kunnossapitoa näkemään, missä ajoneuvot
+      ovat kiitotien suoja-alueeseen nähden. Kuljettaja pyytää luvan radiolla kuten nytkin, kun AFIS on palvelussa,
+      ja <b>ilmoittautuu lisäksi RIAS-sovelluksessa</b>. Ilmoittautumaton ajoneuvo suoja-alueella hälyttää valvomoon.
+      <b>RIAS ei anna lupia.</b>
       Näkymä on jaettu: kaikki linkin avanneet näkevät samat ajoneuvot ja tapahtumat.
       Ajoneuvot ja sijainnit ovat simuloituja.
     </p>
@@ -154,7 +160,7 @@
           <text x="856" y="189" font-family="JetBrains Mono, monospace" font-size="13" font-weight="600" fill="#c9d1d9">21</text>
 
           <line x1="579" y1="450" x2="579" y2="235" stroke="#5a6b7d" stroke-width="1.5" stroke-dasharray="3 4" opacity="0.6"/>
-          <text x="588" y="446" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#8a97a8">PORTTI (vierailijat, tagi)</text>
+          <text x="588" y="446" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#8a97a8">PORTTI</text>
 
         </svg>
       </div>
@@ -176,7 +182,7 @@
           <line x1="1270.3" y1="1125.3" x2="1206.1" y2="1080.9" stroke="#c3ccd8" stroke-width="5" stroke-dasharray="10 12" stroke-opacity="0.8"/>
           <g font-family="JetBrains Mono, monospace" font-weight="600" font-size="38" stroke="#000" stroke-width="6" paint-order="stroke">
             <text x="1000.6" y="1333.9" fill="#f2a93b" text-anchor="start">odotuspaikka</text>
-            <text x="1304.8" y="1149.2" fill="#c3ccd8" text-anchor="middle">PORTTI (vierailijat, tagi)</text>
+            <text x="1304.8" y="1149.2" fill="#c3ccd8" text-anchor="middle">PORTTI</text>
           </g>
           <rect x="18" y="2269" width="900" height="48" rx="8" fill="#000" fill-opacity="0.55"/>
           <text x="34" y="2301" font-family="Inter, sans-serif" font-size="30" fill="#fff">Maanmittauslaitoksen ortokuva (10/2026), kuvausvuosi 2023. CC BY 4.0</text>
@@ -184,12 +190,12 @@
       </div>
 
       <p class="map-caption" id="schemaCaption">
-        Kaavio on havainnollistava eikä mittakaavassa tarkka. Ympyrät = sovellusseuranta,
-        neliöt = tagiseuranta. Perustuu ais.fi eAIP:n EFET-tietoihin (01 OCT 2026 -painos).
+        Kaavio on havainnollistava eikä mittakaavassa tarkka. Ympyrät = sovellusseuranta (puhelin).
+        Perustuu ais.fi eAIP:n EFET-tietoihin (01 OCT 2026 -painos).
       </p>
       <p class="map-caption" id="photoCaption" hidden>
         Enontekiön lentoaseman (EFET) ilmakuva, johon on piirretty kiitotie ja suoja-alue (STRIP, 2121 x 300 m, laskettu eAIP:n kynnyskoordinaateista).
-        Ajoneuvot liikkuvat samalla tavalla kuin kaaviossa: asematasolta tai portilta odotuspaikalle ja ilmoittautumisen jälkeen suoja-alueelle.
+        Ajoneuvot liikkuvat samalla tavalla kuin kaaviossa: asematasolta odotuspaikalle ja ilmoittautumisen jälkeen suoja-alueelle.
         Paikat ovat suuntaa antavia (demossa ei ole oikeaa paikannusta); varsinaisessa tuotteessa sijainti tulee ajoneuvon laitteesta.
         Lähde: Maanmittauslaitoksen ortokuva (10/2026), kuvausvuosi 2023, CC BY 4.0.
       </p>
@@ -201,32 +207,44 @@
         <div class="block-head">Ajoneuvot seurannassa</div>
         <div class="block-sub">Nimeä vapaasti — sama sääntö koskee kaikkia. Näkyy kaikille avoinna.</div>
         <div id="vehicleList"></div>
-        <div class="guest-form">
-          <input type="text" id="guestNameInput" placeholder="esim. LVI-huolto, ABC-123">
-          <button id="btnAddGuest">🏷️ Myönnä tagi</button>
+      </div>
+
+      <div class="block">
+        <div class="block-head">AFIS-palvelu</div>
+        <div class="block-sub">Vaikuttaa kuljettajan radio-ohjeeseen (jaettu kaikille)</div>
+        <div class="role-toggle">
+          <button class="role-btn active" id="roleAtc">AFIS palvelussa</button>
+          <button class="role-btn" id="rolePelastus">AFIS ei palvelussa</button>
         </div>
       </div>
 
       <div class="block">
-        <div class="block-head">Valvomonäkymä</div>
-        <div class="block-sub">Kuka katsoo näyttöä juuri nyt? (jaettu kaikille)</div>
+        <div class="block-head" id="viewHead">Valvomonäkymä: pelastus ja kunnossapito</div>
+        <div class="block-sub">Kenen näkymää katsot? (vain omassa selaimessasi)</div>
         <div class="role-toggle">
-          <button class="role-btn active" id="roleAtc">AFIS-lennontiedottaja<br>(AFIS palvelussa)</button>
-          <button class="role-btn" id="rolePelastus">Pelastus/kunnossapito<br>(AFIS ei palvelussa)</button>
+          <button class="role-btn active" id="viewValvomo">Pelastus ja kunnossapito</button>
+          <button class="role-btn" id="viewAfis">AFIS (tiedoksi)</button>
         </div>
-        <button id="btnRollCall" style="width:100%; margin-top:8px;">📻 Yleiskutsu: "kiitoalueella olevat ilmoittautukaa"</button>
-        <p class="rollcall-note">Käytä, kun AFIS aloittaa palvelun kesken toiminnan. Kutsuu kaikki alueella olevat ajoneuvot vastaamaan radiolla.</p>
+        <p class="rollcall-note" id="afisViewNote" hidden>
+          AFIS-näkymä on katselua varten: näet saman tilannekuvan ja tapahtumalokin, mutta et voi kuitata hälytyksiä
+          etkä antaa lupia. Lentoasema voi halutessaan avata tämän näkymän AFIS:lle.
+        </p>
         <div id="pendingContainer"></div>
       </div>
 
       <div class="block">
         <div class="block-head" style="margin-bottom:8px;">Tulevaa</div>
         <p class="future-note">
-          Ilma-alusten seuranta ja niiden aiheuttamat hälytykset on suunniteltu
-          myöhempään versioon, ei osa tätä ensimmäistä MVP:tä. Poistuminen suoraan
-          toiselle luvanvaraiselle alueelle (esim. usean kiitotien kentällä) vaatii
-          oman logiikkansa — tässä demossa EFET:llä on vain yksi kiitotie.
+          Seuraavat ominaisuudet on suunniteltu lisäosiksi, ja ne otetaan käyttöön sitä mukaa kuin ne valmistuvat:
         </p>
+        <ul class="future-note future-list">
+          <li><b>Ajoneuvopaikantimet:</b> ajoneuvoon asennettu 4G-paikannin, joka toimii ilman puhelinta.</li>
+          <li><b>Tagit:</b> vierailijoille ja itsenäisesti liikkuville ulkopuolisille, esim. sää- ja lennonvarmistuslaitteiden huollolle.</li>
+          <li><b>Digitaalinen lupa:</b> AFIS myöntää luvan sovelluksessa, jos se toteutetaan yhdessä lennonvarmistuspalvelun tarjoajan kanssa.</li>
+          <li><b>Yleiskutsu:</b> kun AFIS aloittaa palvelun kesken toiminnan, alueella olevat ajoneuvot kutsutaan ilmoittautumaan.</li>
+          <li><b>Ilma-alusten seuranta</b> (ADS-B) ja niiden aiheuttamat hälytykset.</li>
+          <li><b>Usean kiitotien</b> ja muiden luvanvaraisten alueiden logiikka. EFET:llä on yksi kiitotie.</li>
+        </ul>
       </div>
 
       <div class="log-panel-inner">
@@ -243,8 +261,8 @@
     Konseptidemo, ei operatiivinen järjestelmä. Demo ei ole yhteydessä oikeisiin seurantalaitteisiin
     eikä lennonvarmistuksen järjestelmiin, ja ajoneuvot ovat keksittyjä. Tila ja tapahtumaloki jaetaan
     kaikille, joilla on tämä linkki (demon tietokanta on tarkoituksella auki).
-    AFIS johtaa ajoneuvoliikennettä samoin kuin torni (AIP GEN 3.3). Sovelluksen lupa on valvomolle vapaaehtoinen
-    lisätyökalu eikä korvaa radiolla annettavaa lupaa. RIAS ei korvaa radioliikennettä, ajolupaa eikä lentopaikan omia
+    AFIS johtaa ajoneuvoliikennettä samoin kuin torni (AIP GEN 3.3). RIAS on lentoaseman pitäjän työkalu. AFIS voi katsoa
+    tilannekuvaa tiedoksi, mutta ei käytä sitä palvelunsa antamiseen eikä anna lupia RIAS:n kautta. RIAS ei korvaa radioliikennettä, ajolupaa eikä lentopaikan omia
     menettelyjä, vaan on niiden rinnalla toimiva lisäturvatyökalu. Jokainen ajoneuvo on itsenäinen toimija:
     samat säännöt koskevat kaikkia yhtä aikaa liikkeellä olevia ajoneuvoja erikseen.
     Lähteet: ais.fi eAIP, EF-AD 2 EFET ja GEN 3.3 (01 OCT 2026 ja 26 NOV 2026), AIC A 005/2026. Ilmakuva: Maanmittauslaitos, CC BY 4.0.
@@ -267,9 +285,10 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
   var rolePelastus = document.getElementById('rolePelastus');
   var pendingContainer = document.getElementById('pendingContainer');
   var vehicleListEl = document.getElementById('vehicleList');
-  var guestNameInput = document.getElementById('guestNameInput');
-  var btnAddGuest = document.getElementById('btnAddGuest');
-  var btnRollCall = document.getElementById('btnRollCall');
+  var viewValvomo = document.getElementById('viewValvomo');
+  var viewAfis = document.getElementById('viewAfis');
+  var viewHead = document.getElementById('viewHead');
+  var afisViewNote = document.getElementById('afisViewNote');
   var liveBadge = document.getElementById('liveBadge');
   var svg = document.getElementById('airfield');
   var svgFoto = document.getElementById('airfieldPhoto');
@@ -290,20 +309,21 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
   // AFIS-sanamuodot. Lähteet: kutsutunnus ja taajuus eAIP AD 2.18,
   // AFIS johtaa ajoneuvoliikennettä kuten torni (GEN 3.3, kohta 3.1), AFIS-ajan ulkopuolella ajoneuvot kuuntelevat
   // ATS-taajuutta mutta eivät tyypillisesti lähetä (AIC A 005/2026). Ei keksittyjä radiorepliikkejä.
+  // B-malli: RIAS ei anna lupia. Lupa pyydetään radiolla (AFIS palvelussa), ja kuljettaja ilmoittautuu aina sovelluksessa.
+  // A-mallin versio (AFIS antaa luvan sovelluksesta, yleiskutsu): git-tagi efet-a-malli.
   var T = {
     afisKutsu: 'Enontekiön tiedotus',
     afisTaajuus: '122.450 MHz',
-    afisKortti: function (v, seuranta) { return v.label + ' (' + seuranta + ') pyytää radiolla lupaa siirtyä kiitotien suoja-alueelle (📻 ' + T.afisKutsu + ', ' + T.afisTaajuus + '). AFIS johtaa ajoneuvoliikennettä samoin kuin torni. Voit myöntää luvan myös sovelluksesta tai jättää sen huomiotta.'; },
-    afisLupa: function (v) { return 'AFIS (' + T.afisKutsu + ') antoi luvan: ' + v.label + '.'; },
-    afisLuvalla: function (v) { return v.label + ' siirtyi kiitotien suoja-alueelle luvan mukaisesti.'; },
-    ilmanLupaa: function (v) { return 'HÄLYTYS: ' + v.label + ' siirtyi kiitotien suoja-alueelle ilman lupaa (RWY 03/21).'; },
-    suljettuKortti: function (v) { return '📱 ' + v.label + ' ilmoittautuu RIAS-sovelluksessa ja kuuntelee AFIS-taajuutta ' + T.afisTaajuus + '. AFIS ei ole palvelussa: lupaa ei anna kukaan, vaan ajoneuvo- ja ajolupa riittää, kunhan ilmoittautuminen tehdään.'; },
-    suljettuIlmoittautui: function (v) { return v.label + ' ilmoittautui sovelluksessa (AFIS ei palvelussa) ja siirtyi kiitoalueelle. Kuuntelee taajuutta ' + T.afisTaajuus + '. Ei poikkeamaa.'; },
-    yleiskutsu: 'AFIS (Enontekiön tiedotus): "Kiitoalueella olevat ilmoittautukaa." (yleiskutsu VHF-taajuudella)',
-    yleiskutsuKysymys: 'Mitä tapahtui, kun AFIS kutsui kiitoalueella olevat ilmoittautumaan?'
+    afisKortti: function (v) { return v.label + ' pyytää radiolla lupaa siirtyä suoja-alueelle (📻 ' + T.afisKutsu + ', ' + T.afisTaajuus + ') ja ilmoittautuu sovelluksessa. RIAS ei tiedä, antoiko AFIS luvan. Se näkee vain ilmoittautumisen.'; },
+    suljettuKortti: function (v) { return '📱 ' + v.label + ' ilmoittautuu RIAS-sovelluksessa ja kuuntelee taajuutta ' + T.afisTaajuus + '. Lupaa ei anna kukaan.'; },
+    afisIlmoittautui: function (v) { return v.label + ' ilmoittautui sovelluksessa ja siirtyi suoja-alueelle (lupa radiolla, ' + T.afisKutsu + ' ' + T.afisTaajuus + '). Ei poikkeamaa.'; },
+    suljettuIlmoittautui: function (v) { return v.label + ' ilmoittautui sovelluksessa (AFIS ei palvelussa) ja siirtyi suoja-alueelle. Kuuntelee taajuutta ' + T.afisTaajuus + '. Ei poikkeamaa.'; },
+    halytys: function (v) { return 'HÄLYTYS: ' + v.label + ' on suoja-alueella ilman ilmoittautumista (RWY 03/21).'; },
+    kuittausIlmoittautui: function (v) { return 'Pelastus/kunnossapito kuittasi hälytyksen: ' + v.label + '. Kuljettaja ilmoittautui jälkikäteen.'; },
+    kuittausPoistui: function (v) { return 'Pelastus/kunnossapito kuittasi hälytyksen: ' + v.label + '. Ajoneuvo poistui suoja-alueelta.'; }
   };
 
-  var state = { role: 'afis', vehicles: {} };
+  var state = { role: 'afis', view: 'valvomo', vehicles: {} };
   var rendered = {};
   var inFlight = {};
 
@@ -327,7 +347,8 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     return fotoXY(st, v.phase === 'hold' ? 165 : 80);
   }
   function fillFor(visual) {
-    return visual === 'alert' ? '#ff4d4f' : visual === 'pending' ? '#f2a93b' : visual === 'working' ? '#4ea1ff' : '#37d67a';
+    // Odotuspaikalla oleva ajoneuvo (visual 'pending') näkyy vihreänä: oranssi on varattu huomiotason hälytyksille.
+    return visual === 'alert' ? '#ff4d4f' : visual === 'working' ? '#4ea1ff' : '#37d67a';
   }
   function svgEl(tag, attrs) {
     var e = document.createElementNS(svgNS, tag);
@@ -425,15 +446,18 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
       r.fotoDotEl.setAttribute('fill', fillFor(v.visual));
       r.ringEl.setAttribute('opacity', v.visual === 'alert' ? '1' : '0');
       r.fotoRingEl.setAttribute('opacity', v.visual === 'alert' ? '1' : '0');
-      r.statusBadgeEl.className = 'status-badge' + (v.visual !== 'normal' ? ' ' + v.visual : '');
-      r.statusBadgeEl.textContent = v.visual === 'alert' ? 'HÄLYTYS' : v.visual === 'pending' ? 'odottaa' : v.visual === 'working' ? 'alueella' : (v.phase === 'strip' ? 'alueella' : 'normaali');
+      r.statusBadgeEl.className = 'status-badge' + (v.visual === 'alert' || v.visual === 'working' ? ' ' + v.visual : '');
+      r.statusBadgeEl.textContent = v.visual === 'alert' ? 'HÄLYTYS' : v.phase === 'hold' ? 'odotuspaikalla' : v.visual === 'working' ? 'ilmoittautunut' : (v.phase === 'strip' ? 'alueella' : 'normaali');
       r.rowBtn.textContent = v.phase === 'strip' ? '⏏' : '▶';
-      r.rowBtn.disabled = v.phase === 'hold' || v.roll_call_pending || !!inFlight[id];
+      r.rowBtn.disabled = v.phase === 'hold' || !!inFlight[id];
     });
 
     roleAtc.classList.toggle('active', state.role === 'afis');
     rolePelastus.classList.toggle('active', state.role !== 'afis');
-    btnRollCall.disabled = state.role !== 'afis';
+    viewValvomo.classList.toggle('active', state.view === 'valvomo');
+    viewAfis.classList.toggle('active', state.view === 'afis');
+    viewHead.textContent = state.view === 'afis' ? 'Valvomonäkymä: AFIS (tiedoksi)' : 'Valvomonäkymä: pelastus ja kunnossapito';
+    afisViewNote.hidden = state.view !== 'afis';
 
     var vals = Object.keys(state.vehicles).map(function (id) { return state.vehicles[id]; });
     var anyAlert = vals.some(function (v) { return v.visual === 'alert'; });
@@ -441,7 +465,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     var anyWorking = vals.some(function (v) { return v.phase === 'strip'; });
     statusPill.classList.remove('pending', 'working', 'alert');
     if (anyAlert) { statusPill.classList.add('alert'); statusText.textContent = 'HÄLYTYS – kiitotiepoikkeama'; }
-    else if (anyPending) { statusPill.classList.add('pending'); statusText.textContent = 'Odottaa lupaa / ilmoittautumista'; }
+    else if (anyPending) { statusText.textContent = 'Ajoneuvo odotuspaikalla'; }
     else if (anyWorking) { statusPill.classList.add('working'); statusText.textContent = 'Ajoneuvo(t) alueella'; }
     else { statusText.textContent = 'Tila: normaali'; }
 
@@ -454,44 +478,42 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
       if (inFlight[id]) { return; }
       var v = state.vehicles[id];
       if (v.phase === 'hold') { pendingContainer.appendChild(buildHoldCard(id, v)); }
-      else if (v.roll_call_pending) { pendingContainer.appendChild(buildRollCallCard(id, v)); }
+      else if (v.phase === 'strip' && v.visual === 'alert') { pendingContainer.appendChild(buildAlertCard(id, v)); }
     });
   }
 
+  // Odotuspaikan kortti: painikkeet simuloivat kuljettajan toimintaa (sama kummassakin näkymässä, jotta demoa voi käyttää).
   function buildHoldCard(id, v) {
     var card = document.createElement('div'); card.className = 'pending-card';
-    var title = document.createElement('div'); title.className = 'pending-title'; title.textContent = v.label + ' odottaa';
+    var title = document.createElement('div'); title.className = 'pending-title'; title.textContent = v.label + ' odotuspaikalla';
     var body = document.createElement('div');
+    body.textContent = state.role === 'afis' ? T.afisKortti(v) : T.suljettuKortti(v);
+    var sim = document.createElement('div'); sim.className = 'sim-label'; sim.textContent = 'Simuloi kuljettajaa:';
     var actions = document.createElement('div'); actions.className = 'pending-actions';
-    if (state.role === 'afis') {
-      body.textContent = T.afisKortti(v, v.tracking === 'tag' ? 'tagi' : 'sovellus');
-      actions.appendChild(makeBtn('✓ Anna lupa (sovellus)', 'btn-grant', function () { doGrant(id); }));
-      actions.appendChild(makeBtn('→ Jatkaa ilman lupaa', 'btn-noauth', function () { doProceedControlled(id); }));
-      actions.appendChild(makeBtn('← Peruuttaa ja palaa', 'btn-return', function () { doReturn(id); }));
-    } else {
-      body.textContent = T.suljettuKortti(v);
-      actions.appendChild(makeBtn('📱 Ilmoittautuu sovelluksessa ja jatkaa', 'btn-noauth', function () { doProceedAnnounced(id, T.suljettuIlmoittautui(v)); }));
-      actions.appendChild(makeBtn('🚫 Ajaa ilmoittautumatta', 'btn-unannounced', function () { doProceedUnannounced(id); }));
-      actions.appendChild(makeBtn('← Peruuttaa ja palaa', 'btn-return', function () { doReturn(id); }));
-    }
-    card.appendChild(title); card.appendChild(body); card.appendChild(actions);
+    var ilmoTeksti = state.role === 'afis' ? T.afisIlmoittautui(v) : T.suljettuIlmoittautui(v);
+    actions.appendChild(makeBtn('📱 Ilmoittautuu sovelluksessa ja jatkaa', 'btn-noauth', function () { doProceedAnnounced(id, ilmoTeksti); }));
+    actions.appendChild(makeBtn('🚫 Ajaa ilmoittautumatta', 'btn-unannounced', function () { doProceedUnannounced(id); }));
+    actions.appendChild(makeBtn('← Peruuttaa ja palaa', 'btn-return', function () { doReturn(id); }));
+    card.appendChild(title); card.appendChild(body); card.appendChild(sim); card.appendChild(actions);
     return card;
   }
 
-  function buildRollCallCard(id, v) {
-    var card = document.createElement('div'); card.className = 'pending-card';
-    var title = document.createElement('div'); title.className = 'pending-title'; title.textContent = v.label + ' ei vastannut heti yleiskutsuun';
-    var body = document.createElement('div'); body.textContent = T.yleiskutsuKysymys;
+  // Hälytyskortti: pelastus ja kunnossapito kuittaa. Kuittaus palauttaa näkymän todelliseen tilanteeseen,
+  // ja poikkeama jää tapahtumalokiin. AFIS-näkymässä ei ole toimintoja.
+  function buildAlertCard(id, v) {
+    var card = document.createElement('div'); card.className = 'pending-card alert-card';
+    var title = document.createElement('div'); title.className = 'pending-title'; title.textContent = 'HÄLYTYS: ' + v.label;
+    var body = document.createElement('div');
+    card.appendChild(title); card.appendChild(body);
+    if (state.view === 'afis') {
+      body.textContent = v.label + ' on suoja-alueella ilman ilmoittautumista. Pelastus ja kunnossapito kuittaa hälytyksen.';
+      return card;
+    }
+    body.textContent = v.label + ' on suoja-alueella ilman ilmoittautumista. Ota yhteys kuljettajaan lentoaseman ohjeiden mukaisesti ja kuittaa, kun tilanne on selvitetty.';
     var actions = document.createElement('div'); actions.className = 'pending-actions';
-    actions.appendChild(makeBtn('✓ Vastasi viiveellä — tilanne selvisi', 'btn-grant', function () {
-      supabase.from('efet_vehicles').update({ announced: true, visual: 'working', roll_call_pending: false }).eq('id', id).then(refetchVehicles);
-      logAdd(v.label + ' vastasi viiveellä yleiskutsuun, tilanne selvisi (esim. radio oli mykistettynä). Ei kiitotiepoikkeamaa.', 'authorized');
-    }));
-    actions.appendChild(makeBtn('✗ Ei vastausta — poikkeama vahvistuu', 'btn-unannounced', function () {
-      supabase.from('efet_vehicles').update({ roll_call_pending: false }).eq('id', id).then(refetchVehicles);
-      logAdd('POIKKEAMA VAHVISTETTU: ' + v.label + ' ei vastannut yleiskutsuun. Vaatii välitöntä toimenpidettä.', 'alert');
-    }));
-    card.appendChild(title); card.appendChild(body); card.appendChild(actions);
+    actions.appendChild(makeBtn('✓ Kuittaa: kuljettaja ilmoittautui', 'btn-grant', function () { doAcknowledge(id, true); }));
+    actions.appendChild(makeBtn('✓ Kuittaa: ajoneuvo poistuu alueelta', 'btn-grant', function () { doAcknowledge(id, false); }));
+    card.appendChild(actions);
     return card;
   }
 
@@ -520,25 +542,19 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
       logAdd(v.label + ' saapui odotuspaikalle.', 'info');
     }, 850);
   }
-  function doGrant(id) {
+  function doAcknowledge(id, ilmoittautui) {
     var v = state.vehicles[id]; if (!v || inFlight[id]) { return; }
     inFlight[id] = true; render();
-    logAdd(T.afisLupa(v), 'info');
     setTimeout(function () {
       delete inFlight[id];
-      supabase.from('efet_vehicles').update({ phase: 'strip', announced: true, visual: 'normal' }).eq('id', id).then(refetchVehicles);
-      logAdd(T.afisLuvalla(v), 'authorized');
-    }, 800);
-  }
-  function doProceedControlled(id) {
-    var v = state.vehicles[id]; if (!v || inFlight[id]) { return; }
-    inFlight[id] = true; render();
-    logAdd(v.label + ' jatkaa matkaa omalla päätöksellä ilman lupaa.', 'info');
-    setTimeout(function () {
-      delete inFlight[id];
-      supabase.from('efet_vehicles').update({ phase: 'strip', announced: false, visual: 'alert' }).eq('id', id).then(refetchVehicles);
-      logAdd(T.ilmanLupaa(v), 'alert');
-    }, 800);
+      if (ilmoittautui) {
+        supabase.from('efet_vehicles').update({ announced: true, visual: 'working' }).eq('id', id).then(refetchVehicles);
+        logAdd(T.kuittausIlmoittautui(v), 'working');
+      } else {
+        supabase.from('efet_vehicles').update({ phase: 'apron', announced: false, visual: 'normal' }).eq('id', id).then(refetchVehicles);
+        logAdd(T.kuittausPoistui(v), 'authorized');
+      }
+    }, 600);
   }
   function doProceedAnnounced(id, lokiteksti) {
     var v = state.vehicles[id]; if (!v || inFlight[id]) { return; }
@@ -555,7 +571,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     setTimeout(function () {
       delete inFlight[id];
       supabase.from('efet_vehicles').update({ phase: 'strip', announced: false, visual: 'alert' }).eq('id', id).then(refetchVehicles);
-      logAdd('POIKKEAMA: ' + v.label + ' on kiitoalueella ilman ilmoittautumista (ei sovellusilmoittautumista eikä radiokutsua).', 'alert');
+      logAdd(T.halytys(v), 'alert');
     }, 800);
   }
   function doReturn(id) {
@@ -576,37 +592,11 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
       logAdd(v.label + ' poistui kiitoalueelta.', 'authorized');
     }, 800);
   }
-  async function doRollCall() {
-    var ids = Object.keys(state.vehicles).filter(function (id) { return state.vehicles[id].phase === 'strip'; });
-    await logAdd(T.yleiskutsu, 'info');
-    if (ids.length === 0) { await logAdd('Ei ajoneuvoja kiitoalueella juuri nyt.', 'info'); return; }
-    for (var i = 0; i < ids.length; i++) {
-      var id = ids[i]; var v = state.vehicles[id];
-      if (v.announced) {
-        await logAdd(v.label + ' vastasi yleiskutsuun heti: tilanne OK, jatkaa työtä.', 'authorized');
-      } else {
-        await supabase.from('efet_vehicles').update({ roll_call_pending: true }).eq('id', id);
-      }
-    }
-    refetchVehicles();
-  }
-
   roleAtc.addEventListener('click', function () { supabase.from('efet_world_state').update({ role: 'afis' }).eq('id', 1).then(refetchWorld); });
   rolePelastus.addEventListener('click', function () { supabase.from('efet_world_state').update({ role: 'pelastus' }).eq('id', 1).then(refetchWorld); });
-  btnRollCall.addEventListener('click', function () { doRollCall(); });
-
-  btnAddGuest.addEventListener('click', async function () {
-    var name = guestNameInput.value.trim();
-    if (!name) { return; }
-    var guestCount = Object.keys(state.vehicles).filter(function (id) { return state.vehicles[id].route_mode === 'gate'; }).length;
-    var laneX = 579 + guestCount * 22;
-    var id = 'guest_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    await supabase.from('efet_vehicles').insert({ id: id, label: name, tracking: 'tag', route_mode: 'gate', lane_x: laneX, start_x: laneX, start_y: 440, phase: 'apron' });
-    await logAdd('Uusi ajoneuvolupa ja tagi myönnetty: ' + name + '.', 'info');
-    guestNameInput.value = '';
-    refetchVehicles();
-  });
-  guestNameInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { btnAddGuest.click(); } });
+  // Näkymän valinta on selainkohtainen (ei jaettu): kukin katsoja valitsee, kenen näkymää katsoo.
+  viewValvomo.addEventListener('click', function () { state.view = 'valvomo'; render(); });
+  viewAfis.addEventListener('click', function () { state.view = 'afis'; render(); });
 
   btnReset.addEventListener('click', async function () {
     inFlight = {};
